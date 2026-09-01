@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.13';
+const VERSION = '2.1.14';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -718,7 +718,9 @@ function ensureRuntimeStyles() {
             }
             #${MANAGER_ID} .srg-manager {
                 border-radius: 12px !important;
+                background: #fbfaf7 !important;
             }
+            #${POPOVER_ID} { background: #fbfaf7 !important; }
         }
     `;
 }

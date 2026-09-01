@@ -1444,7 +1444,23 @@ html.srg-manager-open {
 
 @media (max-width: 700px) {
     #srg-manager-mask { align-items: flex-start; padding: 7px 6px 7px; }
-    #srg-manager-mask .srg-manager { width: 100%; max-height: calc(100dvh - 14px); border-radius: 12px; }
+    #srg-manager-mask .srg-manager {
+        width: 100%;
+        max-height: calc(100dvh - 14px);
+        border-radius: 12px;
+        background: #fbfaf7 !important;
+    }
+    #srg-manager-mask .pgm-group {
+        background: transparent !important;
+        border-color: rgba(70, 80, 105, .12) !important;
+    }
+    #srg-manager-mask .pgm-group-head {
+        background: rgba(127, 127, 127, .025) !important;
+    }
+    #srg-manager-mask .pgm-preset.current,
+    #srg-manager-mask .pgm-preset:hover {
+        background: rgba(127, 127, 127, .035) !important;
+    }
     #srg-manager-mask .pgm-group-actions .reorder { display: none !important; }
 }
 
