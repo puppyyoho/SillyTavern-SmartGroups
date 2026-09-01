@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.18';
+const VERSION = '2.1.19';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -279,11 +279,15 @@ class SelectAdapter {
         this.trigger = null;
         this.hiddenCompanions = new Set();
         this.lastItemsFingerprint = '';
+        this.lastSelectionFingerprint = '';
         this.changeHandler = () => {
             this.updateTrigger();
             if (activePopoverAdapterId === this.id) {
                 locateCurrentOnNextPopoverRender = !this.multiple;
                 renderPopover();
+            }
+            if (activeAdapterId === this.id && document.getElementById(MANAGER_ID)?.classList.contains('open')) {
+                renderManager();
             }
         };
         this.mutationTimer = 0;
@@ -428,7 +432,10 @@ class SelectAdapter {
         const names = new Set(items.map(item => item.key));
         const fingerprint = resourceFingerprint(names);
         const itemListChanged = Boolean(this.lastItemsFingerprint && this.lastItemsFingerprint !== fingerprint);
+        const selectionFingerprint = this.getSelectedKeys().join('\u0001');
+        const selectionChanged = Boolean(this.lastSelectionFingerprint && this.lastSelectionFingerprint !== selectionFingerprint);
         this.lastItemsFingerprint = fingerprint;
+        this.lastSelectionFingerprint = selectionFingerprint;
         let changed = false;
         for (const name of Object.keys(state.assignments)) {
             if (!names.has(name)) {
@@ -447,7 +454,7 @@ class SelectAdapter {
             locateCurrentOnNextPopoverRender = true;
             renderPopover();
         }
-        if (activeAdapterId === this.id && document.getElementById(MANAGER_ID)?.classList.contains('open')) renderManager();
+        if ((itemListChanged || selectionChanged) && activeAdapterId === this.id && document.getElementById(MANAGER_ID)?.classList.contains('open')) renderManager();
         updateSettingsStatus();
     }
 
@@ -1098,6 +1105,9 @@ function renderManagerItem(adapter, item, state, dragEnabled = true) {
 function renderManager() {
     const mask = ensureManager();
     const panel = mask.querySelector('.srg-manager');
+    const previousBody = panel.querySelector('.pgm-body');
+    const previousScrollTop = previousBody?.scrollTop || 0;
+    const shouldRestoreScroll = Boolean(previousBody);
     const managerAdapters = getManagerAdapters();
     if (!managerAdapters.some(item => item.id === activeAdapterId)) activeAdapterId = managerAdapters[0]?.id || '';
     const adapter = adapters.get(activeAdapterId);
@@ -1353,6 +1363,11 @@ function renderManager() {
         requestAnimationFrame(() => {
             const currentItem = panel.querySelector('.pgm-preset.current');
             centerItemInScroller(panel.querySelector('.pgm-body'), currentItem);
+        });
+    } else if (shouldRestoreScroll) {
+        requestAnimationFrame(() => {
+            const body = panel.querySelector('.pgm-body');
+            if (body) body.scrollTop = Math.min(previousScrollTop, Math.max(0, body.scrollHeight - body.clientHeight));
         });
     }
 }
@@ -1621,10 +1636,8 @@ function bindGlobalUiEvents() {
     if (window.visualViewport) {
         const syncViewport = () => syncManagerViewport();
         window.visualViewport.addEventListener('resize', syncViewport);
-        window.visualViewport.addEventListener('scroll', syncViewport);
         eventCleanup.push(() => {
             window.visualViewport?.removeEventListener('resize', syncViewport);
-            window.visualViewport?.removeEventListener('scroll', syncViewport);
         });
     }
     window.addEventListener('scroll', event => {
