@@ -1,21 +1,53 @@
-MIT License
+Gaga Resource Groups Personal Use License 1.0
 
-Copyright (c) 2026 puppyyoho
+Copyright (c) 2026 puppyyoho. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Personal-use permission
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+You may download, install, run, and modify this software solely for your own
+personal, non-commercial use. You may make a reasonable number of backup
+copies for that purpose.
+
+2. Restrictions
+
+Unless you first obtain the copyright holder's explicit written permission,
+you may not:
+
+- copy or redistribute the software or any modified version to another person;
+- publish, mirror, re-upload, repackage, sublicense, rent, lease, or otherwise
+  transfer the software or any modified version;
+- sell the software, charge for access to it, include it in a paid bundle, or
+  use it in any product, service, or activity intended for commercial advantage
+  or monetary compensation;
+- remove or alter copyright, authorship, or license notices; or
+- represent the software or any modified version as your own original work.
+
+3. Public repository hosting
+
+When this software is hosted in a public GitHub repository, GitHub's Terms of
+Service may permit users to view and fork the repository through GitHub's
+functionality. That platform permission does not grant permission to sell,
+commercialize, sublicense, republish, or redistribute the software outside
+the rights expressly granted in this license.
+
+4. Commercial or redistribution permission
+
+Any commercial use, redistribution, republication, or inclusion in another
+project requires a separate written license from the copyright holder. Please
+contact puppyyoho through the project's GitHub repository to request permission.
+
+5. Termination
+
+Your permission under this license terminates automatically if you violate any
+of its terms. Upon termination, you must stop using the software and delete all
+copies in your possession or control, except where retention is required by law.
+
+6. Disclaimer
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT
+OF, OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+This is a source-available personal-use license, not an open-source license.
