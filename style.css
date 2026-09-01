@@ -1393,7 +1393,7 @@ html.srg-manager-open body {
 
 #srg-manager-mask .pgm-preset {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(126px, 180px) 32px;
+    grid-template-columns: minmax(0, 1fr) minmax(126px, 180px);
     gap: 8px;
     align-items: center;
     min-height: 40px;

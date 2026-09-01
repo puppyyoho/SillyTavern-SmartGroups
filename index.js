@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.19';
+const VERSION = '2.1.20';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -286,7 +286,7 @@ class SelectAdapter {
                 locateCurrentOnNextPopoverRender = !this.multiple;
                 renderPopover();
             }
-            if (activeAdapterId === this.id && document.getElementById(MANAGER_ID)?.classList.contains('open')) {
+            if (adapters.get(activeAdapterId)?.stateId === this.stateId && document.getElementById(MANAGER_ID)?.classList.contains('open')) {
                 renderManager();
             }
         };
@@ -454,7 +454,7 @@ class SelectAdapter {
             locateCurrentOnNextPopoverRender = true;
             renderPopover();
         }
-        if ((itemListChanged || selectionChanged) && activeAdapterId === this.id && document.getElementById(MANAGER_ID)?.classList.contains('open')) renderManager();
+        if ((itemListChanged || selectionChanged) && adapters.get(activeAdapterId)?.stateId === this.stateId && document.getElementById(MANAGER_ID)?.classList.contains('open')) renderManager();
         updateSettingsStatus();
     }
 
@@ -909,8 +909,7 @@ function ensureManager() {
         }
         ensureRoot().appendChild(mask);
         backdrop?.addEventListener('click', closeManager);
-        mask.addEventListener('pointerdown', event => {
-            if (event.button !== 0) return;
+        mask.addEventListener('click', event => {
             const clickedBlankListArea = event.target === panel?.querySelector('.srg-manager-list');
             if (event.target === mask || event.target === panel || clickedBlankListArea) closeManager();
         });
@@ -970,8 +969,6 @@ function openManager(adapterId = '', { anchorRect = null } = {}) {
     renderManager();
     requestAnimationFrame(() => {
         syncManagerViewport();
-        const list = mask.querySelector('.srg-manager-list');
-        if (list) list.scrollTop = 0;
     });
 }
 
@@ -1132,6 +1129,13 @@ function renderManager() {
     const selectedKey = adapter.getSelectedKey();
     const selectedGroupId = selectedKey ? (state.assignments[selectedKey] || '') : '';
     const shouldLocateCurrent = locateCurrentOnNextManagerRender && !searching;
+    if (shouldLocateCurrent && selectedKey) {
+        const currentSectionId = selectedGroupId || '__loose';
+        if (state.managerCollapsed[currentSectionId] !== false) {
+            state.managerCollapsed[currentSectionId] = false;
+            scheduleSave();
+        }
+    }
     const managerItemNoun = adapter.kind === 'preset' ? '预设' : '条目';
     const currentItem = managerItems.find(item => item.key === adapter.getSelectedKey());
     const managerSubtitle = `${adapter.kind === 'preset' ? adapter.label.replace(/\s*预设$/, '') : adapter.managerLabel} · ${managerItems.length} 个${managerItemNoun}${currentItem ? ` · 当前：${currentItem.label}` : ''}`;
@@ -1381,7 +1385,7 @@ function createSettingsPanel() {
     panel.innerHTML = `
         <div class="inline-drawer">
             <div class="inline-drawer-toggle inline-drawer-header">
-                <b><i class="fa-solid fa-layer-group"></i> ${DISPLAY_NAME}</b>
+                <b>${DISPLAY_NAME}</b>
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
             <div class="inline-drawer-content">
@@ -1497,9 +1501,13 @@ function injectMenuEntry() {
     item.className = 'list-group-item flex-container flexGap5 interactable';
     item.tabIndex = 0;
     item.innerHTML = '<span class="srg-menu-label">嘎嘎资源分组</span>';
+    item.setAttribute('role', 'button');
     item.addEventListener('click', () => openManager());
     item.addEventListener('keydown', event => {
-        if (event.key === 'Enter' || event.key === ' ') openManager();
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openManager();
+        }
     });
     menu.appendChild(item);
     return true;
@@ -1610,7 +1618,7 @@ function stopLegacyUiIfPresent() {
 }
 
 function bindGlobalUiEvents() {
-    document.addEventListener('pointerdown', event => {
+    const handleDocumentPointerDown = event => {
         const manager = document.getElementById(MANAGER_ID);
         if (manager?.classList.contains('open')) {
             const panel = manager.querySelector('.srg-manager');
@@ -1623,16 +1631,34 @@ function bindGlobalUiEvents() {
         if (!popover?.classList.contains('open')) return;
         const adapter = adapters.get(activePopoverAdapterId);
         if (!popover.contains(event.target) && !adapter?.trigger?.contains(event.target)) closePopover();
-    }, true);
-    document.addEventListener('keydown', event => {
+    };
+    const handleDocumentKeydown = event => {
         if (event.key !== 'Escape') return;
         if (document.getElementById(MANAGER_ID)?.classList.contains('open')) closeManager();
         else closePopover();
-    });
-    window.addEventListener('resize', () => {
+    };
+    const handleWindowResize = () => {
         syncManagerViewport();
         if (activePopoverAdapterId) positionPopover(adapters.get(activePopoverAdapterId));
+    };
+    const handleWindowScroll = event => {
+        const popover = document.getElementById(POPOVER_ID);
+        const manager = document.getElementById(MANAGER_ID);
+        if (popover?.contains(event.target) || manager?.contains(event.target)) return;
+        if (activePopoverAdapterId) positionPopover(adapters.get(activePopoverAdapterId));
+    };
+
+    document.addEventListener('pointerdown', handleDocumentPointerDown, true);
+    document.addEventListener('keydown', handleDocumentKeydown);
+    window.addEventListener('resize', handleWindowResize);
+    window.addEventListener('scroll', handleWindowScroll, true);
+    eventCleanup.push(() => {
+        document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+        document.removeEventListener('keydown', handleDocumentKeydown);
+        window.removeEventListener('resize', handleWindowResize);
+        window.removeEventListener('scroll', handleWindowScroll, true);
     });
+
     if (window.visualViewport) {
         const syncViewport = () => syncManagerViewport();
         window.visualViewport.addEventListener('resize', syncViewport);
@@ -1640,12 +1666,6 @@ function bindGlobalUiEvents() {
             window.visualViewport?.removeEventListener('resize', syncViewport);
         });
     }
-    window.addEventListener('scroll', event => {
-        const popover = document.getElementById(POPOVER_ID);
-        const manager = document.getElementById(MANAGER_ID);
-        if (popover?.contains(event.target) || manager?.contains(event.target)) return;
-        if (activePopoverAdapterId) positionPopover(adapters.get(activePopoverAdapterId));
-    }, true);
 }
 
 async function boot() {
