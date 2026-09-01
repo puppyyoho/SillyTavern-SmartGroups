@@ -1208,16 +1208,6 @@ html.srg-manager-open {
         padding: 12px 12px 9px;
     }
 
-    #srg-manager-mask .srg-manager-header,
-    #srg-manager-mask .srg-tabs,
-    #srg-manager-mask .srg-manager-summary {
-        display: none;
-    }
-
-    #srg-manager-mask .srg-scoped-header {
-        display: flex;
-    }
-
     #srg-manager-mask .srg-manager-toolbar {
         padding: 9px;
     }
