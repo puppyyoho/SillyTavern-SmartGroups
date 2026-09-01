@@ -127,7 +127,7 @@ html.srg-manager-open {
     border-radius: 12px;
     box-shadow: var(--srg-shadow);
     overflow: hidden;
-    backdrop-filter: blur(18px);
+    backdrop-filter: none;
 }
 
 #srg-popover.open {
@@ -352,7 +352,7 @@ html.srg-manager-open {
     justify-content: center;
     padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
     background: rgba(0, 0, 0, 0.58);
-    backdrop-filter: blur(6px);
+    backdrop-filter: none;
     box-sizing: border-box;
 }
 
@@ -1445,5 +1445,6 @@ html.srg-manager-open {
 @media (max-width: 700px) {
     #srg-manager-mask { align-items: flex-start; padding: 7px 6px 7px; }
     #srg-manager-mask .srg-manager { width: 100%; max-height: calc(100dvh - 14px); border-radius: 12px; }
+    #srg-manager-mask .pgm-group-actions .reorder { display: none !important; }
 }
 
