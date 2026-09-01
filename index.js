@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.22';
+const VERSION = '2.1.24';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -737,6 +737,28 @@ function ensurePopover() {
     if (!popover) {
         popover = document.createElement('div');
         popover.id = POPOVER_ID;
+        let lastTouchY = null;
+        popover.addEventListener('touchstart', event => {
+            lastTouchY = event.touches?.[0]?.clientY ?? null;
+        }, { passive: true });
+        popover.addEventListener('touchmove', event => {
+            const nextTouchY = event.touches?.[0]?.clientY;
+            if (lastTouchY == null || nextTouchY == null) return;
+            const list = event.target?.closest?.('.pgm-quick-list');
+            if (!list) {
+                event.preventDefault();
+                lastTouchY = nextTouchY;
+                return;
+            }
+            const deltaY = nextTouchY - lastTouchY;
+            const atTop = list.scrollTop <= 0;
+            const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
+            if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) event.preventDefault();
+            lastTouchY = nextTouchY;
+        }, { passive: false });
+        const resetTouch = () => { lastTouchY = null; };
+        popover.addEventListener('touchend', resetTouch, { passive: true });
+        popover.addEventListener('touchcancel', resetTouch, { passive: true });
         ensureRoot().appendChild(popover);
     }
     return popover;
@@ -769,6 +791,7 @@ function openPopover(adapterId) {
     activePopoverAdapterId = adapterId;
     popoverSearch = '';
     locateCurrentOnNextPopoverRender = true;
+    document.documentElement.classList.add('srg-popover-open');
     renderPopover();
     ensurePopover().classList.add('open');
     adapter.trigger.classList.add('open');
@@ -781,6 +804,7 @@ function closePopover() {
     activePopoverAdapterId = '';
     popoverSearch = '';
     locateCurrentOnNextPopoverRender = false;
+    document.documentElement.classList.remove('srg-popover-open');
 }
 
 function centerItemInScroller(scroller, item) {
@@ -1493,9 +1517,29 @@ async function importGroupingData(file) {
     }
 }
 
+function scrubMenuEntryIcon(item) {
+    if (!item) return;
+    let label = item.querySelector(':scope > .srg-menu-label');
+    if (!label) {
+        label = document.createElement('span');
+        label.className = 'srg-menu-label';
+        item.replaceChildren(label);
+    } else {
+        for (const child of [...item.children]) {
+            if (child !== label) child.remove();
+        }
+    }
+    if (label.textContent !== DISPLAY_NAME) label.textContent = DISPLAY_NAME;
+}
+
 function injectMenuEntry() {
     const menu = document.getElementById('extensionsMenu');
-    if (!menu || document.getElementById(MENU_ID)) return Boolean(document.getElementById(MENU_ID));
+    const existing = document.getElementById(MENU_ID);
+    if (!menu) return Boolean(existing);
+    if (existing) {
+        scrubMenuEntryIcon(existing);
+        return true;
+    }
     const item = document.createElement('div');
     item.id = MENU_ID;
     item.className = 'list-group-item flex-container flexGap5 interactable';
@@ -1510,6 +1554,7 @@ function injectMenuEntry() {
         }
     });
     menu.appendChild(item);
+    scrubMenuEntryIcon(item);
     return true;
 }
 
@@ -1706,6 +1751,7 @@ function cleanup() {
     document.getElementById(SETTINGS_ID)?.remove();
     document.getElementById(RUNTIME_STYLE_ID)?.remove();
     document.documentElement.classList.remove('srg-manager-open');
+    document.documentElement.classList.remove('srg-popover-open');
 }
 
 window.addEventListener('pagehide', cleanup, { once: true });

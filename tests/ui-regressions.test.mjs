@@ -25,6 +25,12 @@ assert.match(styleSource, /#srg-manager-mask \.pgm-move \{[^\n]*text-align:\s*ce
 assert.match(styleSource, /#srg-manager-mask \.srg-manager \{[\s\S]*?font-size:\s*13px;/, 'manager density must not inherit an oversized theme font');
 assert.match(styleSource, /#srg-manager-mask \.pgm-preset \{[\s\S]*?min-height:\s*34px;/, 'manager rows must keep compact height');
 assert.doesNotMatch(indexSource, /<b><i class="fa-solid fa-layer-group"><\/i>/, 'settings title must not restore the removed icon');
+assert.match(indexSource, /function scrubMenuEntryIcon\(item\)/, 'menu icon cleanup must survive host-side reinjection');
+assert.match(styleSource, /#srg-menu-entry > :not\(\.srg-menu-label\)/, 'menu entry must hide host-injected children');
+assert.match(indexSource, /classList\.add\('srg-popover-open'\)/, 'opening the quick picker must lock background scrolling');
+assert.match(indexSource, /classList\.remove\('srg-popover-open'\)/, 'closing the quick picker must unlock background scrolling');
+assert.match(styleSource, /#srg-popover \.pgm-quick-list \{[^\n]*overscroll-behavior-y:\s*contain;/, 'quick picker scrolling must not leak to the page');
+assert.match(indexSource, /popover\.addEventListener\('touchmove',[\s\S]*?passive:\s*false/, 'touch boundary handling must be able to cancel scroll chaining');
 
 console.log('ui-regressions.test.mjs: mobile manager regressions verified');
 
