@@ -1,12 +1,12 @@
 :root {
-    --srg-bg: var(--SmartThemeBlurTintColor, rgba(28, 28, 31, 0.96));
-    --srg-bg-soft: color-mix(in srgb, var(--SmartThemeBlurTintColor, #242428) 88%, white 12%);
-    --srg-text: var(--SmartThemeBodyColor, #ececf1);
+    --srg-bg: var(--SmartThemeBlurTintColor, #f7f4ee);
+    --srg-bg-soft: color-mix(in srgb, var(--SmartThemeBlurTintColor, #f7f4ee) 88%, white 12%);
+    --srg-text: var(--SmartThemeBodyColor, #46516a);
     --srg-muted: color-mix(in srgb, var(--srg-text) 62%, transparent);
     --srg-border: color-mix(in srgb, var(--SmartThemeBorderColor, #8a8a92) 46%, transparent);
-    --srg-accent: var(--SmartThemeQuoteColor, #8cb4ff);
-    --srg-danger: #ff7078;
-    --srg-shadow: 0 18px 55px rgba(0, 0, 0, 0.38);
+    --srg-accent: var(--SmartThemeQuoteColor, #8fb3d9);
+    --srg-danger: #e77c87;
+    --srg-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
 }
 
 html.srg-manager-open {
@@ -916,6 +916,318 @@ html.srg-manager-open {
     .srg-select-arrow,
     .srg-chevron {
         transition: none;
+    }
+}
+
+/* Reference UI treatment: the manager and quick picker share the same
+   light, compact cards and readable text actions as the original script. */
+#srg-manager-mask,
+#srg-popover {
+    --srg-ref-bg: var(--SmartThemeBlurTintColor, #f7f4ee);
+    --srg-ref-fg: var(--SmartThemeBodyColor, #46516a);
+    --srg-ref-border: var(--SmartThemeBorderColor, rgba(70, 80, 105, 0.16));
+    --srg-ref-accent: var(--SmartThemeQuoteColor, #8fb3d9);
+    color: var(--srg-ref-fg);
+    font-family: var(--mainFontFamily, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+#srg-manager-mask {
+    padding: 14px;
+    background: rgba(0, 0, 0, 0.58);
+}
+
+#srg-manager-mask .srg-manager {
+    width: min(760px, 100%);
+    height: auto;
+    max-height: calc(100dvh - 28px);
+    min-height: 0;
+    background: var(--srg-ref-bg);
+    border: 1px solid var(--srg-ref-border);
+    border-radius: 16px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+    contain: layout paint;
+}
+
+#srg-manager-mask .srg-manager-header {
+    padding: 14px 16px 10px;
+    background: transparent;
+}
+
+#srg-manager-mask .srg-manager-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+#srg-manager-mask .srg-manager-header small {
+    margin-top: 3px;
+    font-size: 11px;
+    opacity: 0.62;
+}
+
+#srg-manager-mask .srg-manager-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+}
+
+#srg-manager-mask.scoped .srg-manager-toolbar {
+    display: flex !important;
+    grid-template-columns: none !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+}
+
+#srg-manager-mask .srg-manager-toolbar .srg-search {
+    flex: 1 1 220px;
+    min-width: 0;
+    height: 34px;
+    color: inherit !important;
+    background: rgba(127, 127, 127, 0.08) !important;
+    border: 1px solid var(--srg-ref-border) !important;
+    border-radius: 9px !important;
+}
+
+#srg-manager-mask .srg-action-button {
+    min-height: 34px;
+    padding: 0 11px !important;
+    color: inherit !important;
+    background: rgba(127, 127, 127, 0.08) !important;
+    border: 1px solid var(--srg-ref-border) !important;
+    border-radius: 9px !important;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+#srg-manager-mask .srg-action-button.primary {
+    background: rgba(127, 127, 127, 0.12) !important;
+    border-color: var(--srg-ref-accent) !important;
+}
+
+#srg-manager-mask .srg-action-button:hover {
+    background: rgba(127, 127, 127, 0.16) !important;
+}
+
+#srg-manager-mask .srg-manager-hint {
+    padding: 8px 12px 0;
+    color: inherit;
+    font-size: 10px;
+    line-height: 1.6;
+    opacity: 0.52;
+}
+
+#srg-manager-mask .srg-manager-summary {
+    padding: 8px 12px;
+    color: inherit;
+    background: transparent;
+    border-bottom: 0;
+    font-size: 0.9em;
+    opacity: 0.68;
+}
+
+#srg-manager-mask .srg-manager-list {
+    overflow: auto;
+    padding: 10px 10px 16px;
+}
+
+#srg-manager-mask .srg-manager-group {
+    margin: 0 0 9px;
+    background: rgba(127, 127, 127, 0.035);
+    border: 1px solid var(--srg-ref-border);
+    border-radius: 12px;
+}
+
+#srg-manager-mask .srg-manager-group-head {
+    min-height: 42px;
+    padding: 0 9px 0 11px;
+    background: rgba(127, 127, 127, 0.055);
+    border-bottom: 1px solid var(--srg-ref-border);
+}
+
+#srg-manager-mask .srg-group-heading {
+    gap: 8px;
+    padding: 9px 0;
+}
+
+#srg-manager-mask .srg-group-heading strong {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-weight: 650;
+}
+
+#srg-manager-mask .srg-group-heading > i,
+#srg-manager-mask .srg-auto-badge {
+    display: none;
+}
+
+#srg-manager-mask .srg-row-button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    color: inherit;
+    background: rgba(127, 127, 127, 0.08);
+    border: 1px solid var(--srg-ref-border);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+#srg-manager-mask .srg-row-button:hover:not(:disabled) {
+    background: rgba(127, 127, 127, 0.16);
+}
+
+#srg-manager-mask .srg-row-button.danger {
+    color: #e98a8a;
+}
+
+#srg-manager-mask .srg-row-button:disabled {
+    opacity: 0.28;
+    cursor: default;
+}
+
+#srg-manager-mask .srg-manager-group-body {
+    padding: 4px 7px 7px;
+}
+
+#srg-manager-mask .srg-manager-item {
+    grid-template-columns: minmax(0, 1fr) minmax(126px, 180px);
+    min-height: 40px;
+    padding: 5px 5px 5px 8px;
+    border-radius: 9px;
+}
+
+#srg-manager-mask .srg-manager-item:nth-child(even) {
+    background: transparent;
+}
+
+#srg-manager-mask .srg-manager-item.current {
+    background: rgba(127, 127, 127, 0.08);
+    box-shadow: inset 3px 0 0 var(--srg-ref-accent);
+}
+
+#srg-manager-mask .srg-pin {
+    display: none;
+}
+
+#srg-manager-mask .srg-group-select {
+    height: 30px;
+    color: inherit !important;
+    background: rgba(127, 127, 127, 0.07) !important;
+    border: 1px solid var(--srg-ref-border) !important;
+    border-radius: 8px !important;
+}
+
+#srg-popover {
+    width: min(560px, calc(100vw - 12px));
+    max-height: min(70dvh, 560px);
+    background: var(--srg-ref-bg);
+    border: 1px solid var(--srg-ref-border);
+    border-radius: 13px;
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
+    contain: layout paint;
+}
+
+#srg-popover .srg-pop-toolbar {
+    gap: 7px;
+    padding: 8px;
+    background: transparent;
+}
+
+#srg-popover .srg-pop-list {
+    overflow: auto;
+    padding: 7px;
+}
+
+#srg-popover .srg-pop-group {
+    margin-bottom: 5px;
+    background: transparent;
+    border: 0;
+    border-radius: 9px;
+}
+
+#srg-popover .srg-pop-head {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    gap: 6px;
+    min-height: 36px;
+    padding: 7px 9px;
+    background: rgba(127, 127, 127, 0.055);
+    border-radius: 8px;
+}
+
+#srg-popover .srg-pop-title {
+    font-size: 12px;
+    font-weight: 650;
+    opacity: 0.8;
+    letter-spacing: 0.02em;
+}
+
+#srg-popover .srg-pop-body {
+    padding: 3px 0 2px;
+    border-top: 0;
+}
+
+#srg-popover .srg-pop-item {
+    min-height: 32px;
+    padding: 8px 9px;
+    border-radius: 8px;
+}
+
+#srg-popover .srg-pop-item:hover,
+#srg-popover .srg-pop-item.current {
+    background: rgba(127, 127, 127, 0.09);
+}
+
+#srg-settings .menu_button {
+    min-height: 34px;
+    padding: 0 11px;
+    color: inherit;
+    background: rgba(127, 127, 127, 0.08);
+    border: 1px solid var(--srg-ref-border);
+    border-radius: 9px;
+    font-family: inherit;
+}
+
+@media (max-width: 560px) {
+    #srg-manager-mask {
+        padding: 6px;
+    }
+
+    #srg-manager-mask .srg-manager {
+        width: 100%;
+        max-height: calc(100dvh - 12px);
+        border-radius: 12px;
+    }
+
+    #srg-manager-mask .srg-manager-header {
+        padding: 12px 12px 9px;
+    }
+
+    #srg-manager-mask .srg-manager-header,
+    #srg-manager-mask .srg-tabs,
+    #srg-manager-mask .srg-manager-summary {
+        display: none;
+    }
+
+    #srg-manager-mask .srg-scoped-header {
+        display: flex;
+    }
+
+    #srg-manager-mask .srg-manager-toolbar {
+        padding: 9px;
+    }
+
+    #srg-manager-mask .srg-group-actions .reorder {
+        display: none;
+    }
+
+    #srg-manager-mask .srg-manager-item {
+        grid-template-columns: minmax(0, 1fr) 112px;
     }
 }
 

@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.10';
+const VERSION = '2.1.11';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -659,6 +659,74 @@ function ensureRuntimeStyles() {
                 display: none !important;
             }
         }
+        #${MANAGER_ID} .srg-manager {
+            background: var(--SmartThemeBlurTintColor, #f7f4ee) !important;
+            color: var(--SmartThemeBodyColor, #46516a) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 18px 60px rgba(0,0,0,.22) !important;
+        }
+        #${MANAGER_ID} .srg-manager-toolbar {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            padding: 10px 12px !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-toolbar {
+            display: flex !important;
+            grid-template-columns: none !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            padding: 10px 12px !important;
+        }
+        #${MANAGER_ID} .srg-manager-toolbar .srg-search {
+            flex: 1 1 220px !important;
+            min-width: 0 !important;
+            width: auto !important;
+        }
+        #${MANAGER_ID} .srg-manager-toolbar .srg-action-button {
+            flex: 0 0 auto !important;
+            width: auto !important;
+            min-width: 0 !important;
+            padding: 0 11px !important;
+            color: inherit !important;
+            background: rgba(127,127,127,.08) !important;
+            border-radius: 9px !important;
+        }
+        #${MANAGER_ID} .srg-manager-group {
+            background: rgba(127,127,127,.035) !important;
+            border-radius: 12px !important;
+        }
+        #${MANAGER_ID} .srg-row-button {
+            width: 28px !important;
+            height: 28px !important;
+            padding: 0 !important;
+            color: inherit !important;
+            background: rgba(127,127,127,.08) !important;
+            border: 1px solid var(--SmartThemeBorderColor, rgba(70,80,105,.16)) !important;
+            border-radius: 8px !important;
+            font: inherit !important;
+        }
+        #${MANAGER_ID} .srg-pin,
+        #${MANAGER_ID} .srg-group-heading > i,
+        #${MANAGER_ID} .srg-auto-badge {
+            display: none !important;
+        }
+        @media (max-width: 700px) {
+            #${MANAGER_ID} .srg-manager-toolbar .srg-action-button {
+                flex: 0 0 auto !important;
+            }
+            #${MANAGER_ID} .srg-manager-header,
+            #${MANAGER_ID} .srg-tabs,
+            #${MANAGER_ID} .srg-manager-summary {
+                display: none !important;
+            }
+            #${MANAGER_ID} .srg-scoped-header {
+                display: flex !important;
+            }
+            #${MANAGER_ID} .srg-manager-toolbar .srg-scoped-close {
+                display: none !important;
+            }
+        }
     `;
 }
 
@@ -1035,6 +1103,10 @@ function renderManager() {
     const managerItems = getManagerItems(adapter);
     const { state, buckets, loose } = groupBuckets(adapter, managerSearch, managerItems);
     const searching = Boolean(normalizeName(managerSearch));
+    const managerTitle = adapter.kind === 'preset' ? '预设分组' : adapter.kind === 'theme' ? '美化分组' : '世界书分组';
+    const managerItemNoun = adapter.kind === 'preset' ? '预设' : '条目';
+    const currentItem = managerItems.find(item => item.key === adapter.getSelectedKey());
+    const managerSubtitle = `${adapter.kind === 'preset' ? adapter.label.replace(/\s*预设$/, '') : adapter.managerLabel} · ${managerItems.length} 个${managerItemNoun}${currentItem ? ` · 当前：${currentItem.label}` : ''}`;
     const sections = [];
     for (let index = 0; index < state.groups.length; index++) {
         const group = state.groups[index];
@@ -1045,13 +1117,13 @@ function renderManager() {
             <section class="srg-manager-group ${collapsed ? 'collapsed' : ''}">
                 <div class="srg-manager-group-head">
                     <button type="button" class="srg-group-heading" data-srg-manager-toggle="${escapeHtml(group.id)}" aria-expanded="${collapsed ? 'false' : 'true'}">
-                        <span class="srg-chevron">▾</span><i class="fa-solid fa-folder"></i><strong>${escapeHtml(group.name)}</strong><span class="srg-count">${items.length}</span>${group.auto ? '<span class="srg-auto-badge">自动</span>' : ''}
+                        <span class="srg-chevron">▾</span><strong>${escapeHtml(group.name)}</strong><span class="srg-count">${items.length}</span>
                     </button>
                     <div class="srg-group-actions">
-                        <button type="button" class="srg-icon-button" data-srg-up="${escapeHtml(group.id)}" ${index === 0 ? 'disabled' : ''} title="上移"><i class="fa-solid fa-arrow-up"></i></button>
-                        <button type="button" class="srg-icon-button" data-srg-down="${escapeHtml(group.id)}" ${index === state.groups.length - 1 ? 'disabled' : ''} title="下移"><i class="fa-solid fa-arrow-down"></i></button>
-                        <button type="button" class="srg-icon-button" data-srg-rename="${escapeHtml(group.id)}" title="重命名"><i class="fa-solid fa-pencil"></i></button>
-                        <button type="button" class="srg-icon-button danger" data-srg-delete-group="${escapeHtml(group.id)}" title="删除分组（条目保留）"><i class="fa-solid fa-trash"></i></button>
+                        <button type="button" class="srg-row-button reorder" data-srg-up="${escapeHtml(group.id)}" ${index === 0 ? 'disabled' : ''} aria-label="上移分组" title="上移分组">↑</button>
+                        <button type="button" class="srg-row-button reorder" data-srg-down="${escapeHtml(group.id)}" ${index === state.groups.length - 1 ? 'disabled' : ''} aria-label="下移分组" title="下移分组">↓</button>
+                        <button type="button" class="srg-row-button" data-srg-rename="${escapeHtml(group.id)}" aria-label="重命名" title="重命名">✎</button>
+                        <button type="button" class="srg-row-button danger" data-srg-delete-group="${escapeHtml(group.id)}" aria-label="删除分组（条目保留）" title="删除分组（条目保留）">×</button>
                     </div>
                 </div>
                 <div class="srg-manager-group-body">${collapsed ? '' : (items.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="srg-empty">此分组暂无条目</div>')}</div>
@@ -1064,7 +1136,7 @@ function renderManager() {
             <section class="srg-manager-group loose ${collapsed ? 'collapsed' : ''}">
                 <div class="srg-manager-group-head">
                     <button type="button" class="srg-group-heading" data-srg-manager-toggle="__loose" aria-expanded="${collapsed ? 'false' : 'true'}">
-                        <span class="srg-chevron">▾</span><i class="fa-solid fa-inbox"></i><strong>未分组</strong><span class="srg-count">${loose.length}</span>
+                        <span class="srg-chevron">▾</span><strong>未分组</strong><span class="srg-count">${loose.length}</span>
                     </button>
                 </div>
                 <div class="srg-manager-group-body">${collapsed ? '' : (loose.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="srg-empty">暂无未分组条目</div>')}</div>
@@ -1075,7 +1147,7 @@ function renderManager() {
     panel.classList.toggle('compact', Boolean(settings.compactRows));
     panel.innerHTML = `
         <header class="srg-scoped-header">
-            <div><h2>${escapeHtml(adapter.managerLabel)}分组</h2><small>${managerItems.length} 个条目 · ${state.groups.length} 个分组</small></div>
+            <div><h2>${managerTitle}</h2><small>${escapeHtml(managerSubtitle)}</small></div>
             <button type="button" class="srg-close" data-srg-scoped-close aria-label="关闭管理">×</button>
         </header>
         <header class="srg-manager-header">
@@ -1085,11 +1157,12 @@ function renderManager() {
         <nav class="srg-tabs">${tabs}</nav>
         <div class="srg-manager-toolbar">
             <input type="search" class="srg-search" data-srg-manager-search placeholder="搜索${escapeHtml(adapter.label)}..." value="${escapeHtml(managerSearch)}">
-            <button type="button" class="menu_button" data-srg-smart><i class="fa-solid fa-wand-magic-sparkles"></i><span>智能整理</span></button>
-            <button type="button" class="menu_button" data-srg-add-group><i class="fa-solid fa-folder-plus"></i><span>新建分组</span></button>
-            <button type="button" class="menu_button danger" data-srg-reset-source title="只清除分组，不删除预设或主题"><i class="fa-solid fa-rotate-left"></i><span>清除分组</span></button>
-            <button type="button" class="menu_button srg-scoped-close" data-srg-scoped-close aria-label="关闭管理" title="关闭管理"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="menu_button srg-action-button primary" data-srg-smart>智能整理并合并</button>
+            <button type="button" class="menu_button srg-action-button" data-srg-add-group>＋ 新建分组</button>
+            <button type="button" class="menu_button srg-action-button danger" data-srg-reset-source title="只清除分组，不删除预设或主题">清除分组</button>
+            <button type="button" class="menu_button srg-scoped-close" data-srg-scoped-close aria-label="关闭管理" title="关闭管理">×</button>
         </div>
+        <div class="srg-manager-hint">智能整理会按名称系列归并条目；手动调整后的分组会保留。手机端可直接点击分组标题折叠或展开，条目本体不会被修改。</div>
         <div class="srg-manager-summary"><strong>${escapeHtml(adapter.managerLabel)}</strong><span>${managerItems.length} 个条目 · ${state.groups.length} 个分组</span></div>
         <div class="srg-manager-list">${sections.join('') || '<div class="srg-empty srg-empty-large">没有匹配的条目</div>'}</div>
     `;
@@ -1215,10 +1288,10 @@ function createSettingsPanel() {
                 <label class="checkbox_label"><input type="checkbox" data-srg-setting="compactRows"><span>管理器使用紧凑行高</span></label>
                 <label class="srg-number-setting"><span>自动成组所需的最少条目数</span><input type="number" min="2" max="12" step="1" data-srg-setting="minGroupSize"></label>
                 <div class="srg-settings-actions">
-                    <button type="button" class="menu_button" data-srg-settings-open><i class="fa-solid fa-layer-group"></i><span>打开管理器</span></button>
-                    <button type="button" class="menu_button" data-srg-settings-all><i class="fa-solid fa-wand-magic-sparkles"></i><span>整理全部</span></button>
-                    <button type="button" class="menu_button" data-srg-export><i class="fa-solid fa-file-export"></i><span>导出分组</span></button>
-                    <button type="button" class="menu_button" data-srg-import><i class="fa-solid fa-file-import"></i><span>导入分组</span></button>
+                    <button type="button" class="menu_button" data-srg-settings-open><span>打开管理器</span></button>
+                    <button type="button" class="menu_button" data-srg-settings-all><span>整理全部</span></button>
+                    <button type="button" class="menu_button" data-srg-export><span>导出分组</span></button>
+                    <button type="button" class="menu_button" data-srg-import><span>导入分组</span></button>
                     <input type="file" accept="application/json,.json" data-srg-import-file hidden>
                 </div>
                 <div class="srg-settings-status" data-srg-status></div>
