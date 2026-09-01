@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.11';
+const VERSION = '2.1.12';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -50,6 +50,7 @@ let managerSearch = '';
 let popoverSearch = '';
 let activePopoverAdapterId = '';
 let locateCurrentOnNextPopoverRender = false;
+let locateCurrentOnNextManagerRender = false;
 let managerAnchorRect = null;
 const adapters = new Map();
 const eventCleanup = [];
@@ -558,11 +559,11 @@ function ensureRuntimeStyles() {
                 padding: 7px !important;
             }
             #${MANAGER_ID} .srg-manager {
-                width: calc(100% - 14px) !important;
-                height: calc(100% - 14px) !important;
+                width: 100% !important;
+                height: auto !important;
                 min-height: 0 !important;
-                max-height: calc(100% - 14px) !important;
-                border-radius: 14px !important;
+                max-height: calc(100dvh - 14px) !important;
+                border-radius: 12px !important;
             }
             #${MANAGER_ID} .srg-manager-backdrop {
                 inset: 0 !important;
@@ -663,7 +664,7 @@ function ensureRuntimeStyles() {
             background: var(--SmartThemeBlurTintColor, #f7f4ee) !important;
             color: var(--SmartThemeBodyColor, #46516a) !important;
             border-radius: 16px !important;
-            box-shadow: 0 18px 60px rgba(0,0,0,.22) !important;
+            box-shadow: 0 18px 60px rgba(0,0,0,.48) !important;
         }
         #${MANAGER_ID} .srg-manager-toolbar {
             display: flex !important;
@@ -715,16 +716,8 @@ function ensureRuntimeStyles() {
             #${MANAGER_ID} .srg-manager-toolbar .srg-action-button {
                 flex: 0 0 auto !important;
             }
-            #${MANAGER_ID} .srg-manager-header,
-            #${MANAGER_ID} .srg-tabs,
-            #${MANAGER_ID} .srg-manager-summary {
-                display: none !important;
-            }
-            #${MANAGER_ID} .srg-scoped-header {
-                display: flex !important;
-            }
-            #${MANAGER_ID} .srg-manager-toolbar .srg-scoped-close {
-                display: none !important;
+            #${MANAGER_ID} .srg-manager {
+                border-radius: 12px !important;
             }
         }
     `;
@@ -811,8 +804,8 @@ function renderPopover() {
     }
 
     const renderItems = items => items.map(item => `
-        <button type="button" class="srg-pop-item ${currentKeys.has(item.key) ? 'current' : ''}" data-srg-select="${escapeHtml(item.key)}" ${adapter.multiple ? `aria-pressed="${currentKeys.has(item.key) ? 'true' : 'false'}"` : ''}>
-            <span class="srg-current-dot"></span><span>${escapeHtml(item.label)}</span>
+        <button type="button" class="pgm-q-item srg-pop-item ${currentKeys.has(item.key) ? 'current' : ''}" data-srg-select="${escapeHtml(item.key)}" ${adapter.multiple ? `aria-pressed="${currentKeys.has(item.key) ? 'true' : 'false'}"` : ''}>
+            <span class="pgm-current-dot srg-current-dot"></span><span>${escapeHtml(item.label)}</span>
         </button>
     `).join('');
 
@@ -822,32 +815,32 @@ function renderPopover() {
         if (!items.length) continue;
         const collapsed = searching || (shouldLocateCurrent && currentGroupId === group.id) ? false : state.collapsed[group.id] !== false;
         sections.push(`
-            <section class="srg-pop-group ${collapsed ? 'collapsed' : ''}">
-                <button type="button" class="srg-pop-head" data-srg-toggle="${escapeHtml(group.id)}">
-                    <span class="srg-chevron">▾</span><span class="srg-pop-title">${escapeHtml(group.name)}</span><span class="srg-count">${items.length}</span>
+            <section class="pgm-q-group srg-pop-group ${collapsed ? 'collapsed' : ''}">
+                <button type="button" class="pgm-q-head srg-pop-head" data-srg-toggle="${escapeHtml(group.id)}">
+                    <span class="pgm-q-chevron srg-chevron">▾</span><span class="pgm-q-title srg-pop-title">${escapeHtml(group.name)}</span><span class="pgm-q-count srg-count">${items.length}</span>
                 </button>
-                <div class="srg-pop-body">${collapsed ? '' : renderItems(items)}</div>
+                <div class="pgm-q-body srg-pop-body">${collapsed ? '' : renderItems(items)}</div>
             </section>
         `);
     }
     if (loose.length) {
         const collapsed = searching || (shouldLocateCurrent && !currentGroupId && loose.some(item => item.key === current)) ? false : state.collapsed.__loose !== false;
         sections.push(`
-            <section class="srg-pop-group ${collapsed ? 'collapsed' : ''}">
-                <button type="button" class="srg-pop-head" data-srg-toggle="__loose">
-                    <span class="srg-chevron">▾</span><span class="srg-pop-title">未分组</span><span class="srg-count">${loose.length}</span>
+            <section class="pgm-q-group srg-pop-group ${collapsed ? 'collapsed' : ''}">
+                <button type="button" class="pgm-q-head srg-pop-head" data-srg-toggle="__loose">
+                    <span class="pgm-q-chevron srg-chevron">▾</span><span class="pgm-q-title srg-pop-title">未分组</span><span class="pgm-q-count srg-count">${loose.length}</span>
                 </button>
-                <div class="srg-pop-body">${collapsed ? '' : renderItems(loose)}</div>
+                <div class="pgm-q-body srg-pop-body">${collapsed ? '' : renderItems(loose)}</div>
             </section>
         `);
     }
 
     popover.innerHTML = `
-        <div class="srg-pop-toolbar">
-            <input type="search" class="srg-search" data-srg-pop-search placeholder="搜索${escapeHtml(adapter.label)}..." value="${escapeHtml(popoverSearch)}">
-            <button type="button" class="srg-icon-button" data-srg-open-manager title="管理分组"><i class="fa-solid fa-layer-group"></i></button>
+        <div class="pgm-quick-head srg-pop-toolbar">
+            <input type="search" class="pgm-search srg-search" data-srg-pop-search placeholder="搜索${escapeHtml(adapter.label)}..." value="${escapeHtml(popoverSearch)}">
+            <button type="button" class="pgm-icon-btn srg-icon-button" data-srg-open-manager title="管理分组"><i class="fa-solid fa-gear"></i></button>
         </div>
-        <div class="srg-pop-list">${sections.join('') || '<div class="srg-empty">没有匹配的条目</div>'}</div>
+        <div class="pgm-quick-list srg-pop-list">${sections.join('') || '<div class="pgm-empty srg-empty">没有匹配的条目</div>'}</div>
     `;
 
     const searchInput = popover.querySelector('[data-srg-pop-search]');
@@ -859,16 +852,8 @@ function renderPopover() {
         positionPopover(adapter);
     });
     popover.querySelector('[data-srg-open-manager]')?.addEventListener('click', () => {
-        const id = adapter.id;
-        const rect = popover.getBoundingClientRect();
-        const anchorRect = {
-            left: rect.left,
-            top: rect.top,
-            width: rect.width,
-            height: rect.height,
-        };
         closePopover();
-        openManager(id, { anchorRect });
+        openManager(adapter.id);
     });
     popover.querySelectorAll('[data-srg-toggle]').forEach(button => {
         button.addEventListener('click', () => {
@@ -962,11 +947,15 @@ function syncScopedManagerGeometry(viewportWidth, viewportHeight) {
 function openManager(adapterId = '', { anchorRect = null } = {}) {
     activeAdapterId = resolveManagerAdapterId(adapterId);
     managerSearch = '';
-    managerAnchorRect = anchorRect ? { ...anchorRect } : null;
+    locateCurrentOnNextManagerRender = true;
+    // The reference script always opens its manager as a full overlay. Keep the
+    // argument for backwards compatibility with older callers, but do not anchor
+    // the manager to the quick picker (that produced the bottom-offset mobile UI).
+    managerAnchorRect = null;
     closePopover();
     document.documentElement.classList.add('srg-manager-open');
     const mask = ensureManager();
-    mask.classList.toggle('scoped', Boolean(managerAnchorRect));
+    mask.classList.remove('scoped');
     mask.classList.add('open');
     syncManagerViewport();
     renderManager();
@@ -985,6 +974,7 @@ function closeManager() {
     mask?.style.removeProperty('--srg-manager-width');
     mask?.style.removeProperty('--srg-manager-height');
     managerAnchorRect = null;
+    locateCurrentOnNextManagerRender = false;
     document.documentElement.classList.remove('srg-manager-open');
 }
 
@@ -1073,9 +1063,11 @@ function renderManagerItem(adapter, item, state) {
         `<option value="${escapeHtml(group.id)}" ${group.id === assigned ? 'selected' : ''}>${escapeHtml(group.name)}</option>`
     ))].join('');
     return `
-        <div class="srg-manager-item ${isManagerItemSelected(adapter, item.key) ? 'current' : ''}">
-            <button type="button" class="srg-item-name" data-srg-manager-select="${escapeHtml(item.key)}" title="切换到此条目">${escapeHtml(item.label)}</button>
-            <select class="srg-group-select" data-srg-assign="${escapeHtml(item.key)}">${options}</select>
+        <div class="pgm-preset srg-manager-item ${isManagerItemSelected(adapter, item.key) ? 'current' : ''}">
+            <div class="pgm-preset-main">
+                <button type="button" class="pgm-preset-name srg-item-name ${isManagerItemSelected(adapter, item.key) ? 'current' : ''}" data-srg-manager-select="${escapeHtml(item.key)}" title="切换到此条目">${escapeHtml(item.label)}</button>
+            </div>
+            <select class="pgm-move srg-group-select" data-srg-assign="${escapeHtml(item.key)}">${options}</select>
             <span class="srg-pin ${pinned ? 'active' : ''}" title="${pinned ? '手动位置：自动整理会保留' : '自动位置'}"><i class="fa-solid fa-thumbtack"></i></span>
         </div>
     `;
@@ -1092,9 +1084,10 @@ function renderManager() {
     `).join('');
 
     if (!adapter) {
+        locateCurrentOnNextManagerRender = false;
         panel.innerHTML = `
-            <header class="srg-manager-header"><div><h2>${DISPLAY_NAME}</h2><small>v${VERSION}</small></div><button type="button" class="srg-close" data-srg-close>×</button></header>
-            <div class="srg-empty srg-empty-large">尚未发现可管理的预设、主题或世界书选择器。</div>
+            <header class="pgm-head srg-manager-header"><div class="pgm-head-main"><div class="pgm-title">${DISPLAY_NAME}</div><div class="pgm-sub">v${VERSION}</div></div><button type="button" class="pgm-icon-btn srg-close" data-srg-close>×</button></header>
+            <div class="pgm-empty srg-empty srg-empty-large">尚未发现可管理的预设、主题或世界书选择器。</div>
         `;
         panel.querySelector('[data-srg-close]')?.addEventListener('click', closeManager);
         return;
@@ -1103,7 +1096,9 @@ function renderManager() {
     const managerItems = getManagerItems(adapter);
     const { state, buckets, loose } = groupBuckets(adapter, managerSearch, managerItems);
     const searching = Boolean(normalizeName(managerSearch));
-    const managerTitle = adapter.kind === 'preset' ? '预设分组' : adapter.kind === 'theme' ? '美化分组' : '世界书分组';
+    const selectedKey = adapter.getSelectedKey();
+    const selectedGroupId = selectedKey ? (state.assignments[selectedKey] || '') : '';
+    const shouldLocateCurrent = locateCurrentOnNextManagerRender && !searching;
     const managerItemNoun = adapter.kind === 'preset' ? '预设' : '条目';
     const currentItem = managerItems.find(item => item.key === adapter.getSelectedKey());
     const managerSubtitle = `${adapter.kind === 'preset' ? adapter.label.replace(/\s*预设$/, '') : adapter.managerLabel} · ${managerItems.length} 个${managerItemNoun}${currentItem ? ` · 当前：${currentItem.label}` : ''}`;
@@ -1112,63 +1107,55 @@ function renderManager() {
         const group = state.groups[index];
         const items = buckets.get(group.id) || [];
         if (searching && !items.length && !group.name.toLocaleLowerCase().includes(managerSearch.toLocaleLowerCase())) continue;
-        const collapsed = searching ? false : state.managerCollapsed[group.id] !== false;
+        const collapsed = searching ? false : (shouldLocateCurrent && selectedGroupId === group.id ? false : state.managerCollapsed[group.id] !== false);
         sections.push(`
-            <section class="srg-manager-group ${collapsed ? 'collapsed' : ''}">
-                <div class="srg-manager-group-head">
-                    <button type="button" class="srg-group-heading" data-srg-manager-toggle="${escapeHtml(group.id)}" aria-expanded="${collapsed ? 'false' : 'true'}">
-                        <span class="srg-chevron">▾</span><strong>${escapeHtml(group.name)}</strong><span class="srg-count">${items.length}</span>
+            <section class="pgm-group srg-manager-group ${collapsed ? 'collapsed' : ''}">
+                <div class="pgm-group-head srg-manager-group-head">
+                    <button type="button" class="pgm-group-toggle srg-group-heading" data-srg-manager-toggle="${escapeHtml(group.id)}" aria-expanded="${collapsed ? 'false' : 'true'}">
+                        <span class="pgm-chevron srg-chevron">▾</span><strong class="pgm-group-name">${escapeHtml(group.name)}</strong><span class="pgm-count srg-count">${items.length}</span>
                     </button>
-                    <div class="srg-group-actions">
-                        <button type="button" class="srg-row-button reorder" data-srg-up="${escapeHtml(group.id)}" ${index === 0 ? 'disabled' : ''} aria-label="上移分组" title="上移分组">↑</button>
-                        <button type="button" class="srg-row-button reorder" data-srg-down="${escapeHtml(group.id)}" ${index === state.groups.length - 1 ? 'disabled' : ''} aria-label="下移分组" title="下移分组">↓</button>
-                        <button type="button" class="srg-row-button" data-srg-rename="${escapeHtml(group.id)}" aria-label="重命名" title="重命名">✎</button>
-                        <button type="button" class="srg-row-button danger" data-srg-delete-group="${escapeHtml(group.id)}" aria-label="删除分组（条目保留）" title="删除分组（条目保留）">×</button>
+                    <div class="pgm-group-actions srg-group-actions">
+                        <button type="button" class="pgm-row-btn srg-row-button reorder" data-srg-up="${escapeHtml(group.id)}" ${index === 0 ? 'disabled' : ''} aria-label="上移分组" title="上移分组">↑</button>
+                        <button type="button" class="pgm-row-btn srg-row-button reorder" data-srg-down="${escapeHtml(group.id)}" ${index === state.groups.length - 1 ? 'disabled' : ''} aria-label="下移分组" title="下移分组">↓</button>
+                        <button type="button" class="pgm-row-btn srg-row-button" data-srg-rename="${escapeHtml(group.id)}" aria-label="重命名" title="重命名">✎</button>
+                        <button type="button" class="pgm-row-btn srg-row-button danger" data-srg-delete-group="${escapeHtml(group.id)}" aria-label="删除分组（条目保留）" title="删除分组（条目保留）">×</button>
                     </div>
                 </div>
-                <div class="srg-manager-group-body">${collapsed ? '' : (items.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="srg-empty">此分组暂无条目</div>')}</div>
+                <div class="pgm-group-body srg-manager-group-body">${collapsed ? '' : (items.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="pgm-empty srg-empty">此分组暂无条目</div>')}</div>
             </section>
         `);
     }
     if (loose.length || !state.groups.length) {
-        const collapsed = searching ? false : state.managerCollapsed.__loose !== false;
+        const collapsed = searching ? false : (shouldLocateCurrent && !selectedGroupId ? false : state.managerCollapsed.__loose !== false);
         sections.push(`
-            <section class="srg-manager-group loose ${collapsed ? 'collapsed' : ''}">
-                <div class="srg-manager-group-head">
-                    <button type="button" class="srg-group-heading" data-srg-manager-toggle="__loose" aria-expanded="${collapsed ? 'false' : 'true'}">
-                        <span class="srg-chevron">▾</span><strong>未分组</strong><span class="srg-count">${loose.length}</span>
+            <section class="pgm-group srg-manager-group loose ${collapsed ? 'collapsed' : ''}">
+                <div class="pgm-group-head srg-manager-group-head">
+                    <button type="button" class="pgm-group-toggle srg-group-heading" data-srg-manager-toggle="__loose" aria-expanded="${collapsed ? 'false' : 'true'}">
+                        <span class="pgm-chevron srg-chevron">▾</span><strong class="pgm-group-name">未分组</strong><span class="pgm-count srg-count">${loose.length}</span>
                     </button>
                 </div>
-                <div class="srg-manager-group-body">${collapsed ? '' : (loose.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="srg-empty">暂无未分组条目</div>')}</div>
+                <div class="pgm-group-body srg-manager-group-body">${collapsed ? '' : (loose.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="pgm-empty srg-empty">暂无未分组条目</div>')}</div>
             </section>
         `);
     }
 
     panel.classList.toggle('compact', Boolean(settings.compactRows));
     panel.innerHTML = `
-        <header class="srg-scoped-header">
-            <div><h2>${managerTitle}</h2><small>${escapeHtml(managerSubtitle)}</small></div>
-            <button type="button" class="srg-close" data-srg-scoped-close aria-label="关闭管理">×</button>
-        </header>
-        <header class="srg-manager-header">
-            <div><h2>${DISPLAY_NAME}</h2><small>预设、美化与世界书统一整理 · v${VERSION}</small></div>
-            <button type="button" class="srg-close" data-srg-close aria-label="关闭">×</button>
+        <header class="pgm-head srg-manager-header">
+            <div class="pgm-head-main"><div class="pgm-title">${DISPLAY_NAME}</div><div class="pgm-sub">${escapeHtml(managerSubtitle)} · v${VERSION}</div></div>
+            <button type="button" class="pgm-icon-btn srg-close" data-srg-close aria-label="关闭">×</button>
         </header>
         <nav class="srg-tabs">${tabs}</nav>
-        <div class="srg-manager-toolbar">
-            <input type="search" class="srg-search" data-srg-manager-search placeholder="搜索${escapeHtml(adapter.label)}..." value="${escapeHtml(managerSearch)}">
-            <button type="button" class="menu_button srg-action-button primary" data-srg-smart>智能整理并合并</button>
-            <button type="button" class="menu_button srg-action-button" data-srg-add-group>＋ 新建分组</button>
-            <button type="button" class="menu_button srg-action-button danger" data-srg-reset-source title="只清除分组，不删除预设或主题">清除分组</button>
-            <button type="button" class="menu_button srg-scoped-close" data-srg-scoped-close aria-label="关闭管理" title="关闭管理">×</button>
+        <div class="pgm-tools srg-manager-toolbar">
+            <input type="search" class="pgm-search srg-search" data-srg-manager-search placeholder="搜索${escapeHtml(adapter.label)}..." value="${escapeHtml(managerSearch)}">
+            <button type="button" class="pgm-btn primary srg-action-button" data-srg-smart>智能整理并合并</button>
+            <button type="button" class="pgm-btn srg-action-button" data-srg-add-group>＋ 新建分组</button>
         </div>
-        <div class="srg-manager-hint">智能整理会按名称系列归并条目；手动调整后的分组会保留。手机端可直接点击分组标题折叠或展开，条目本体不会被修改。</div>
-        <div class="srg-manager-summary"><strong>${escapeHtml(adapter.managerLabel)}</strong><span>${managerItems.length} 个条目 · ${state.groups.length} 个分组</span></div>
-        <div class="srg-manager-list">${sections.join('') || '<div class="srg-empty srg-empty-large">没有匹配的条目</div>'}</div>
+        <div class="pgm-hint srg-manager-hint">智能整理会按名称系列归并条目；手动调整后的分组会保留。手机端可直接点击分组标题折叠或展开，条目本体不会被修改。</div>
+        <div class="pgm-body srg-manager-list">${sections.join('') || '<div class="pgm-empty srg-empty srg-empty-large">没有匹配的条目</div>'}</div>
     `;
 
     panel.querySelector('[data-srg-close]')?.addEventListener('click', closeManager);
-    panel.querySelectorAll('[data-srg-scoped-close]').forEach(button => button.addEventListener('click', closeManager));
     panel.querySelectorAll('[data-srg-tab]').forEach(button => {
         button.addEventListener('click', () => {
             activeAdapterId = button.dataset.srgTab || '';
@@ -1264,6 +1251,13 @@ function renderManager() {
         scheduleSave();
         renderManager();
     }));
+    if (shouldLocateCurrent) {
+        locateCurrentOnNextManagerRender = false;
+        requestAnimationFrame(() => {
+            const currentItem = panel.querySelector('.pgm-preset.current');
+            centerItemInScroller(panel.querySelector('.pgm-body'), currentItem);
+        });
+    }
 }
 
 function createSettingsPanel() {
