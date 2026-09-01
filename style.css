@@ -453,6 +453,32 @@ html.srg-manager-open {
     display: none !important;
 }
 
+.srg-scoped-header {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex: 0 0 auto;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--srg-border);
+}
+
+.srg-scoped-header h2,
+.srg-scoped-header small {
+    display: block;
+    margin: 0;
+}
+
+.srg-scoped-header h2 {
+    font-size: 1.12em;
+}
+
+.srg-scoped-header small {
+    margin-top: 2px;
+    color: var(--srg-muted);
+    font-size: 0.85em;
+}
+
 .srg-manager-summary {
     display: flex;
     align-items: center;
@@ -689,20 +715,23 @@ html.srg-manager-open {
 
 @media (max-width: 700px) {
     #srg-manager-mask {
-        padding: 6px;
-        align-items: flex-end;
+        position: absolute;
+        height: 100vh;
+        height: 100dvh;
+        padding: 7px;
+        align-items: flex-start;
     }
 
     .srg-manager-backdrop {
-        bottom: auto !important;
-        height: 22% !important;
+        inset: 0 !important;
+        height: 100% !important;
     }
 
     .srg-manager {
-        width: min(560px, calc(100% - 4px));
-        height: min(78%, 720px);
+        width: calc(100% - 14px);
+        height: calc(100% - 14px);
         min-height: 0;
-        max-height: calc(100% - 12px);
+        max-height: calc(100% - 14px);
         border-radius: 14px;
     }
 
@@ -832,6 +861,28 @@ html.srg-manager-open {
 #srg-manager-mask.scoped .srg-manager-group {
     margin-bottom: 6px;
     border-radius: 9px;
+}
+
+@media (max-width: 700px) {
+    #srg-manager-mask.scoped .srg-manager {
+        left: 7px !important;
+        top: 7px !important;
+        width: calc(100% - 14px) !important;
+        height: calc(100% - 14px) !important;
+        max-height: calc(100% - 14px) !important;
+    }
+
+    #srg-manager-mask.scoped .srg-scoped-header {
+        display: flex;
+    }
+
+    #srg-manager-mask.scoped .srg-manager-toolbar {
+        grid-template-columns: minmax(0, 1fr) repeat(3, 36px);
+    }
+
+    #srg-manager-mask.scoped .srg-manager-toolbar .srg-scoped-close {
+        display: none !important;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

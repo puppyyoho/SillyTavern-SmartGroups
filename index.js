@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.7';
+const VERSION = '2.1.8';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -51,6 +51,7 @@ let popoverSearch = '';
 let activePopoverAdapterId = '';
 let locateCurrentOnNextPopoverRender = false;
 let managerAnchorRect = null;
+let managerPageOffset = { x: 0, y: 0 };
 const adapters = new Map();
 const eventCleanup = [];
 
@@ -542,20 +543,23 @@ function ensureRuntimeStyles() {
     style.textContent = `
         @media (max-width: 700px) {
             #${MANAGER_ID}.open {
-                align-items: flex-end !important;
+                position: absolute !important;
+                height: 100vh !important;
+                height: 100dvh !important;
+                align-items: flex-start !important;
                 justify-content: center !important;
-                padding: 6px !important;
+                padding: 7px !important;
             }
             #${MANAGER_ID} .srg-manager {
-                width: min(560px, calc(100% - 4px)) !important;
-                height: min(78%, 720px) !important;
+                width: calc(100% - 14px) !important;
+                height: calc(100% - 14px) !important;
                 min-height: 0 !important;
-                max-height: calc(100% - 12px) !important;
+                max-height: calc(100% - 14px) !important;
                 border-radius: 14px !important;
             }
             #${MANAGER_ID} .srg-manager-backdrop {
-                bottom: auto !important;
-                height: 22% !important;
+                inset: 0 !important;
+                height: 100% !important;
             }
             #${MANAGER_ID} .srg-manager-group-head {
                 align-items: center !important;
@@ -630,6 +634,24 @@ function ensureRuntimeStyles() {
             margin-bottom: 6px !important;
             border-radius: 9px !important;
         }
+        @media (max-width: 700px) {
+            #${MANAGER_ID}.scoped .srg-manager {
+                left: 7px !important;
+                top: 7px !important;
+                width: calc(100% - 14px) !important;
+                height: calc(100% - 14px) !important;
+                max-height: calc(100% - 14px) !important;
+            }
+            #${MANAGER_ID}.scoped .srg-scoped-header {
+                display: flex !important;
+            }
+            #${MANAGER_ID}.scoped .srg-manager-toolbar {
+                grid-template-columns: minmax(0, 1fr) repeat(3, 36px) !important;
+            }
+            #${MANAGER_ID}.scoped .srg-manager-toolbar .srg-scoped-close {
+                display: none !important;
+            }
+        }
     `;
 }
 
@@ -682,6 +704,15 @@ function closePopover() {
     activePopoverAdapterId = '';
     popoverSearch = '';
     locateCurrentOnNextPopoverRender = false;
+}
+
+function centerItemInScroller(scroller, item) {
+    if (!scroller || !item) return;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const delta = (itemRect.top + itemRect.height / 2) - (scrollerRect.top + scrollerRect.height / 2);
+    const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    scroller.scrollTop = Math.max(0, Math.min(scroller.scrollTop + delta, max));
 }
 
 function renderPopover() {
@@ -786,7 +817,7 @@ function renderPopover() {
         locateCurrentOnNextPopoverRender = false;
         requestAnimationFrame(() => {
             const currentItem = popover.querySelector('.srg-pop-item.current');
-            currentItem?.scrollIntoView({ block: 'center', inline: 'nearest' });
+            centerItemInScroller(popover.querySelector('.srg-pop-list'), currentItem);
             positionPopover(adapter);
         });
     } else {
@@ -826,14 +857,16 @@ function syncManagerViewport() {
     const height = Math.max(1, Math.round(viewport?.height || window.innerHeight));
     const offsetLeft = Math.round(viewport?.offsetLeft || 0);
     const offsetTop = Math.round(viewport?.offsetTop || 0);
+    const mobile = width <= 700;
     mask.style.inset = 'auto';
-    mask.style.top = '0';
-    mask.style.left = '0';
+    mask.style.position = mobile ? 'absolute' : 'fixed';
+    mask.style.top = mobile ? `${managerPageOffset.y}px` : '0';
+    mask.style.left = mobile ? `${managerPageOffset.x}px` : '0';
     mask.style.right = 'auto';
     mask.style.bottom = 'auto';
     mask.style.width = `${width}px`;
     mask.style.height = `${height}px`;
-    mask.style.transform = `translate(${offsetLeft}px, ${offsetTop}px)`;
+    mask.style.transform = mobile ? 'none' : `translate(${offsetLeft}px, ${offsetTop}px)`;
     syncScopedManagerGeometry(width, height);
 }
 
@@ -855,6 +888,7 @@ function openManager(adapterId = '', { anchorRect = null } = {}) {
     activeAdapterId = resolveManagerAdapterId(adapterId);
     managerSearch = '';
     managerAnchorRect = anchorRect ? { ...anchorRect } : null;
+    managerPageOffset = { x: window.scrollX || 0, y: window.scrollY || 0 };
     closePopover();
     document.documentElement.classList.add('srg-manager-open');
     const mask = ensureManager();
@@ -877,6 +911,7 @@ function closeManager() {
     mask?.style.removeProperty('--srg-manager-width');
     mask?.style.removeProperty('--srg-manager-height');
     managerAnchorRect = null;
+    managerPageOffset = { x: 0, y: 0 };
     document.documentElement.classList.remove('srg-manager-open');
 }
 
@@ -1034,6 +1069,10 @@ function renderManager() {
 
     panel.classList.toggle('compact', Boolean(settings.compactRows));
     panel.innerHTML = `
+        <header class="srg-scoped-header">
+            <div><h2>${escapeHtml(adapter.managerLabel)}分组</h2><small>${managerItems.length} 个条目 · ${state.groups.length} 个分组</small></div>
+            <button type="button" class="srg-close" data-srg-scoped-close aria-label="关闭管理">×</button>
+        </header>
         <header class="srg-manager-header">
             <div><h2>${DISPLAY_NAME}</h2><small>预设、美化与世界书统一整理 · v${VERSION}</small></div>
             <button type="button" class="srg-close" data-srg-close aria-label="关闭">×</button>
@@ -1051,7 +1090,7 @@ function renderManager() {
     `;
 
     panel.querySelector('[data-srg-close]')?.addEventListener('click', closeManager);
-    panel.querySelector('[data-srg-scoped-close]')?.addEventListener('click', closeManager);
+    panel.querySelectorAll('[data-srg-scoped-close]').forEach(button => button.addEventListener('click', closeManager));
     panel.querySelectorAll('[data-srg-tab]').forEach(button => {
         button.addEventListener('click', () => {
             activeAdapterId = button.dataset.srgTab || '';
