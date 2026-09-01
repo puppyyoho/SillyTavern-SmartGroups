@@ -90,8 +90,14 @@ html.srg-manager-open {
 }
 
 #srg-root {
-    position: relative;
+    position: fixed;
+    inset: 0;
     z-index: 99999;
+    pointer-events: none;
+}
+
+#srg-root > * {
+    pointer-events: auto;
 }
 
 #srg-popover {

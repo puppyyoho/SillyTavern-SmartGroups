@@ -4,7 +4,7 @@
   "js": "index.js",
   "css": "style.css",
   "author": "puppyyoho",
-  "version": "2.1.8",
+  "version": "2.1.9",
   "homePage": "https://github.com/puppyyoho/SillyTavern-SmartGroups",
   "auto_update": true,
   "minimum_client_version": "1.12.0"

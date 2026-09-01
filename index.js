@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.8';
+const VERSION = '2.1.9';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -51,7 +51,6 @@ let popoverSearch = '';
 let activePopoverAdapterId = '';
 let locateCurrentOnNextPopoverRender = false;
 let managerAnchorRect = null;
-let managerPageOffset = { x: 0, y: 0 };
 const adapters = new Map();
 const eventCleanup = [];
 
@@ -541,6 +540,14 @@ function ensureRuntimeStyles() {
         document.head.appendChild(style);
     }
     style.textContent = `
+        #${ROOT_ID} {
+            position: fixed !important;
+            inset: 0 !important;
+            pointer-events: none !important;
+        }
+        #${ROOT_ID} > * {
+            pointer-events: auto !important;
+        }
         @media (max-width: 700px) {
             #${MANAGER_ID}.open {
                 position: absolute !important;
@@ -860,8 +867,8 @@ function syncManagerViewport() {
     const mobile = width <= 700;
     mask.style.inset = 'auto';
     mask.style.position = mobile ? 'absolute' : 'fixed';
-    mask.style.top = mobile ? `${managerPageOffset.y}px` : '0';
-    mask.style.left = mobile ? `${managerPageOffset.x}px` : '0';
+    mask.style.top = '0';
+    mask.style.left = '0';
     mask.style.right = 'auto';
     mask.style.bottom = 'auto';
     mask.style.width = `${width}px`;
@@ -888,7 +895,6 @@ function openManager(adapterId = '', { anchorRect = null } = {}) {
     activeAdapterId = resolveManagerAdapterId(adapterId);
     managerSearch = '';
     managerAnchorRect = anchorRect ? { ...anchorRect } : null;
-    managerPageOffset = { x: window.scrollX || 0, y: window.scrollY || 0 };
     closePopover();
     document.documentElement.classList.add('srg-manager-open');
     const mask = ensureManager();
@@ -911,7 +917,6 @@ function closeManager() {
     mask?.style.removeProperty('--srg-manager-width');
     mask?.style.removeProperty('--srg-manager-height');
     managerAnchorRect = null;
-    managerPageOffset = { x: 0, y: 0 };
     document.documentElement.classList.remove('srg-manager-open');
 }
 
