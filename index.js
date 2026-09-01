@@ -1,8 +1,8 @@
 import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
-const DISPLAY_NAME = '智能资源分组';
-const VERSION = '2.0.0';
+const DISPLAY_NAME = '嘎嘎资源分组';
+const VERSION = '2.0.1';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -45,6 +45,7 @@ let activeAdapterId = '';
 let managerSearch = '';
 let popoverSearch = '';
 let activePopoverAdapterId = '';
+let locateCurrentOnNextPopoverRender = false;
 const adapters = new Map();
 const eventCleanup = [];
 
@@ -135,6 +136,7 @@ function normalizeResourceState(resource) {
     if (!output.assignments || typeof output.assignments !== 'object') output.assignments = {};
     if (!output.manualAssignments || typeof output.manualAssignments !== 'object') output.manualAssignments = {};
     if (!output.collapsed || typeof output.collapsed !== 'object') output.collapsed = {};
+    if (!output.managerCollapsed || typeof output.managerCollapsed !== 'object') output.managerCollapsed = {};
     if (typeof output.fingerprint !== 'string') output.fingerprint = '';
 
     const ids = new Set();
@@ -176,6 +178,7 @@ function getOrCreateGroup(state, label, auto = true) {
         group = { id: uid('g'), name: normalizeName(label) || '未命名分组', auto };
         state.groups.push(group);
         state.collapsed[group.id] = true;
+        state.managerCollapsed[group.id] = true;
     } else if (!auto) {
         group.auto = false;
     }
@@ -255,7 +258,14 @@ class SelectAdapter {
         this.kind = select.id === 'themes' ? 'theme' : 'preset';
         this.wrapper = null;
         this.trigger = null;
-        this.changeHandler = () => this.updateTrigger();
+        this.lastItemsFingerprint = '';
+        this.changeHandler = () => {
+            this.updateTrigger();
+            if (activePopoverAdapterId === this.id) {
+                locateCurrentOnNextPopoverRender = true;
+                renderPopover();
+            }
+        };
         this.mutationTimer = 0;
         this.observer = new MutationObserver(() => {
             if (this.mutationTimer) clearTimeout(this.mutationTimer);
@@ -361,6 +371,9 @@ class SelectAdapter {
         const items = this.getItems();
         const state = getResourceState(this.id);
         const names = new Set(items.map(item => item.key));
+        const fingerprint = resourceFingerprint(names);
+        const itemListChanged = Boolean(this.lastItemsFingerprint && this.lastItemsFingerprint !== fingerprint);
+        this.lastItemsFingerprint = fingerprint;
         let changed = false;
         for (const name of Object.keys(state.assignments)) {
             if (!names.has(name)) {
@@ -369,14 +382,16 @@ class SelectAdapter {
                 changed = true;
             }
         }
-        const fingerprint = resourceFingerprint(names);
         if (settings.autoGroupOnDiscovery && state.fingerprint !== fingerprint) {
             applySmartGrouping(this, { announce: false });
         } else if (changed) {
             scheduleSave();
         }
         this.updateTrigger();
-        if (activePopoverAdapterId === this.id) renderPopover();
+        if (activePopoverAdapterId === this.id && itemListChanged) {
+            locateCurrentOnNextPopoverRender = true;
+            renderPopover();
+        }
         if (activeAdapterId === this.id && document.getElementById(MANAGER_ID)?.classList.contains('open')) renderManager();
         updateSettingsStatus();
     }
@@ -498,6 +513,7 @@ function openPopover(adapterId) {
     if (!adapter?.trigger) return;
     activePopoverAdapterId = adapterId;
     popoverSearch = '';
+    locateCurrentOnNextPopoverRender = true;
     renderPopover();
     ensurePopover().classList.add('open');
     adapter.trigger.classList.add('open');
@@ -509,6 +525,7 @@ function closePopover() {
     if (activePopoverAdapterId) adapters.get(activePopoverAdapterId)?.trigger?.classList.remove('open');
     activePopoverAdapterId = '';
     popoverSearch = '';
+    locateCurrentOnNextPopoverRender = false;
 }
 
 function renderPopover() {
@@ -521,6 +538,7 @@ function renderPopover() {
     const current = adapter.getSelectedKey();
     const { state, buckets, loose, searching } = groupBuckets(adapter, popoverSearch);
     const currentGroupId = state.assignments[current] || '';
+    const shouldLocateCurrent = locateCurrentOnNextPopoverRender && !searching;
 
     const renderItems = items => items.map(item => `
         <button type="button" class="srg-pop-item ${item.key === current ? 'current' : ''}" data-srg-select="${escapeHtml(item.key)}">
@@ -532,7 +550,7 @@ function renderPopover() {
     for (const group of state.groups) {
         const items = buckets.get(group.id) || [];
         if (!items.length) continue;
-        const collapsed = searching || currentGroupId === group.id ? false : state.collapsed[group.id] !== false;
+        const collapsed = searching || (shouldLocateCurrent && currentGroupId === group.id) ? false : state.collapsed[group.id] !== false;
         sections.push(`
             <section class="srg-pop-group ${collapsed ? 'collapsed' : ''}">
                 <button type="button" class="srg-pop-head" data-srg-toggle="${escapeHtml(group.id)}">
@@ -543,7 +561,7 @@ function renderPopover() {
         `);
     }
     if (loose.length) {
-        const collapsed = searching || (!currentGroupId && loose.some(item => item.key === current)) ? false : state.collapsed.__loose !== false;
+        const collapsed = searching || (shouldLocateCurrent && !currentGroupId && loose.some(item => item.key === current)) ? false : state.collapsed.__loose !== false;
         sections.push(`
             <section class="srg-pop-group ${collapsed ? 'collapsed' : ''}">
                 <button type="button" class="srg-pop-head" data-srg-toggle="__loose">
@@ -579,7 +597,10 @@ function renderPopover() {
         button.addEventListener('click', () => {
             if (searching) return;
             const groupId = button.dataset.srgToggle;
-            state.collapsed[groupId] = !(state.collapsed[groupId] !== false);
+            const section = button.closest('.srg-pop-group');
+            const isCurrentlyCollapsed = section?.classList.contains('collapsed') ?? true;
+            state.collapsed[groupId] = !isCurrentlyCollapsed;
+            locateCurrentOnNextPopoverRender = false;
             scheduleSave();
             renderPopover();
             positionPopover(adapter);
@@ -590,7 +611,16 @@ function renderPopover() {
             if (adapter.selectItem(button.dataset.srgSelect || '')) closePopover();
         });
     });
-    requestAnimationFrame(() => positionPopover(adapter));
+    if (shouldLocateCurrent) {
+        locateCurrentOnNextPopoverRender = false;
+        requestAnimationFrame(() => {
+            const currentItem = popover.querySelector('.srg-pop-item.current');
+            currentItem?.scrollIntoView({ block: 'center', inline: 'nearest' });
+            positionPopover(adapter);
+        });
+    } else {
+        requestAnimationFrame(() => positionPopover(adapter));
+    }
 }
 
 function ensureManager() {
@@ -598,7 +628,7 @@ function ensureManager() {
     if (!mask) {
         mask = document.createElement('div');
         mask.id = MANAGER_ID;
-        mask.innerHTML = '<div class="srg-manager" role="dialog" aria-modal="true" aria-label="智能资源分组"></div>';
+        mask.innerHTML = '<div class="srg-manager" role="dialog" aria-modal="true" aria-label="嘎嘎资源分组"></div>';
         ensureRoot().appendChild(mask);
         mask.addEventListener('pointerdown', event => {
             if (event.target === mask) closeManager();
@@ -685,10 +715,13 @@ function renderManager() {
         const group = state.groups[index];
         const items = buckets.get(group.id) || [];
         if (searching && !items.length && !group.name.toLocaleLowerCase().includes(managerSearch.toLocaleLowerCase())) continue;
+        const collapsed = searching ? false : state.managerCollapsed[group.id] !== false;
         sections.push(`
-            <section class="srg-manager-group">
+            <section class="srg-manager-group ${collapsed ? 'collapsed' : ''}">
                 <div class="srg-manager-group-head">
-                    <div class="srg-group-heading"><i class="fa-solid fa-folder"></i><strong>${escapeHtml(group.name)}</strong><span class="srg-count">${items.length}</span>${group.auto ? '<span class="srg-auto-badge">自动</span>' : ''}</div>
+                    <button type="button" class="srg-group-heading" data-srg-manager-toggle="${escapeHtml(group.id)}" aria-expanded="${collapsed ? 'false' : 'true'}">
+                        <span class="srg-chevron">▾</span><i class="fa-solid fa-folder"></i><strong>${escapeHtml(group.name)}</strong><span class="srg-count">${items.length}</span>${group.auto ? '<span class="srg-auto-badge">自动</span>' : ''}
+                    </button>
                     <div class="srg-group-actions">
                         <button type="button" class="srg-icon-button" data-srg-up="${escapeHtml(group.id)}" ${index === 0 ? 'disabled' : ''} title="上移"><i class="fa-solid fa-arrow-up"></i></button>
                         <button type="button" class="srg-icon-button" data-srg-down="${escapeHtml(group.id)}" ${index === state.groups.length - 1 ? 'disabled' : ''} title="下移"><i class="fa-solid fa-arrow-down"></i></button>
@@ -696,15 +729,20 @@ function renderManager() {
                         <button type="button" class="srg-icon-button danger" data-srg-delete-group="${escapeHtml(group.id)}" title="删除分组（条目保留）"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
-                <div class="srg-manager-group-body">${items.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="srg-empty">此分组暂无条目</div>'}</div>
+                <div class="srg-manager-group-body">${collapsed ? '' : (items.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="srg-empty">此分组暂无条目</div>')}</div>
             </section>
         `);
     }
     if (loose.length || !state.groups.length) {
+        const collapsed = searching ? false : state.managerCollapsed.__loose !== false;
         sections.push(`
-            <section class="srg-manager-group loose">
-                <div class="srg-manager-group-head"><div class="srg-group-heading"><i class="fa-solid fa-inbox"></i><strong>未分组</strong><span class="srg-count">${loose.length}</span></div></div>
-                <div class="srg-manager-group-body">${loose.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="srg-empty">暂无未分组条目</div>'}</div>
+            <section class="srg-manager-group loose ${collapsed ? 'collapsed' : ''}">
+                <div class="srg-manager-group-head">
+                    <button type="button" class="srg-group-heading" data-srg-manager-toggle="__loose" aria-expanded="${collapsed ? 'false' : 'true'}">
+                        <span class="srg-chevron">▾</span><i class="fa-solid fa-inbox"></i><strong>未分组</strong><span class="srg-count">${loose.length}</span>
+                    </button>
+                </div>
+                <div class="srg-manager-group-body">${collapsed ? '' : (loose.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="srg-empty">暂无未分组条目</div>')}</div>
             </section>
         `);
     }
@@ -731,6 +769,17 @@ function renderManager() {
         button.addEventListener('click', () => {
             activeAdapterId = button.dataset.srgTab || '';
             managerSearch = '';
+            renderManager();
+        });
+    });
+    panel.querySelectorAll('[data-srg-manager-toggle]').forEach(button => {
+        button.addEventListener('click', () => {
+            if (searching) return;
+            const groupId = button.dataset.srgManagerToggle || '';
+            const section = button.closest('.srg-manager-group');
+            const isCurrentlyCollapsed = section?.classList.contains('collapsed') ?? true;
+            state.managerCollapsed[groupId] = !isCurrentlyCollapsed;
+            scheduleSave();
             renderManager();
         });
     });
@@ -807,6 +856,7 @@ function renderManager() {
             }
         }
         delete state.collapsed[group.id];
+        delete state.managerCollapsed[group.id];
         scheduleSave();
         renderManager();
     }));
@@ -912,7 +962,7 @@ async function importGroupingData(file) {
     try {
         const data = JSON.parse(await file.text());
         if (data?.type !== 'sillytavern-smart-resource-groups' || !data.resources || typeof data.resources !== 'object') {
-            throw new Error('文件不是智能资源分组导出格式');
+            throw new Error('文件不是嘎嘎资源分组导出格式');
         }
         if (!await confirmAction('导入分组', '导入会覆盖当前分组记录，但不会修改或删除任何预设、模板或主题。继续吗？')) return;
         settings.resources = {};
@@ -934,7 +984,7 @@ function injectMenuEntry() {
     item.id = MENU_ID;
     item.className = 'list-group-item flex-container flexGap5 interactable';
     item.tabIndex = 0;
-    item.innerHTML = '<div class="fa-fw fa-solid fa-layer-group extensionsMenuExtensionButton"></div><span>智能资源分组</span>';
+    item.innerHTML = '<div class="fa-fw fa-solid fa-layer-group extensionsMenuExtensionButton"></div><span>嘎嘎资源分组</span>';
     item.addEventListener('click', () => openManager());
     item.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') openManager();
@@ -1061,7 +1111,10 @@ function bindGlobalUiEvents() {
     window.addEventListener('resize', () => {
         if (activePopoverAdapterId) positionPopover(adapters.get(activePopoverAdapterId));
     });
-    window.addEventListener('scroll', () => {
+    window.addEventListener('scroll', event => {
+        const popover = document.getElementById(POPOVER_ID);
+        const manager = document.getElementById(MANAGER_ID);
+        if (popover?.contains(event.target) || manager?.contains(event.target)) return;
         if (activePopoverAdapterId) positionPopover(adapters.get(activePopoverAdapterId));
     }, true);
 }

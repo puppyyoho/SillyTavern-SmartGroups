@@ -1,10 +1,10 @@
 {
-  "display_name": "智能资源分组",
+  "display_name": "嘎嘎资源分组",
   "loading_order": 90,
   "js": "index.js",
   "css": "style.css",
   "author": "puppyyoho",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "homePage": "https://github.com/puppyyoho/SillyTavern-SmartGroups",
   "auto_update": true,
   "minimum_client_version": "1.12.0"

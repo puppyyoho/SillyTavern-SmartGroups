@@ -1,4 +1,4 @@
-# 智能资源分组（SillyTavern Smart Groups）
+# 嘎嘎资源分组（SillyTavern Smart Groups）
 
 把 SillyTavern 里的预设、格式模板和 UI 主题（美化）统一变成可搜索、可折叠、可手动整理的分组下拉框。
 
@@ -45,7 +45,7 @@
    - 当前用户：`SillyTavern/data/<你的用户>/extensions/`
    - 全局：`SillyTavern/public/scripts/extensions/third-party/`
 3. 重载 SillyTavern 页面；如未出现，请执行一次强制刷新。
-4. 在“扩展设置”中找到“智能资源分组”，或从扩展菜单打开管理器。
+4. 在“扩展设置”中找到“嘎嘎资源分组”，或从扩展菜单打开管理器。
 
 ## 从旧版脚本迁移
 
