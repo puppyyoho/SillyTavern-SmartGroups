@@ -1448,18 +1448,21 @@ html.srg-manager-open {
         width: 100%;
         max-height: calc(100dvh - 14px);
         border-radius: 12px;
-        background: #fbfaf7 !important;
+        background: var(--SmartThemeBlurTintColor, #f7f4ee) !important;
     }
     #srg-manager-mask .pgm-group {
         background: transparent !important;
-        border-color: rgba(70, 80, 105, .12) !important;
+        border-color: var(--SmartThemeBorderColor, rgba(70, 80, 105, .12)) !important;
     }
     #srg-manager-mask .pgm-group-head {
-        background: rgba(127, 127, 127, .025) !important;
+        background: transparent !important;
     }
     #srg-manager-mask .pgm-preset.current,
     #srg-manager-mask .pgm-preset:hover {
-        background: rgba(127, 127, 127, .035) !important;
+        background: transparent !important;
+    }
+    #srg-manager-mask .pgm-preset.current {
+        background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8fb3d9) 16%, transparent) !important;
     }
     #srg-manager-mask .pgm-group-actions .reorder { display: none !important; }
 }
