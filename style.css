@@ -686,14 +686,20 @@ html.srg-manager-open {
 @media (max-width: 700px) {
     #srg-manager-mask {
         padding: 6px;
+        align-items: flex-end;
+    }
+
+    .srg-manager-backdrop {
+        bottom: auto !important;
+        height: 22% !important;
     }
 
     .srg-manager {
-        width: 100%;
-        height: calc(100dvh - 12px);
+        width: min(560px, calc(100% - 4px));
+        height: min(78%, 720px);
         min-height: 0;
-        max-height: calc(100dvh - 12px);
-        border-radius: 10px;
+        max-height: calc(100% - 12px);
+        border-radius: 14px;
     }
 
     .srg-manager-header {

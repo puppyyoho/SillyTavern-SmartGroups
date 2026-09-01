@@ -2,13 +2,14 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.5';
+const VERSION = '2.1.6';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
 const MANAGER_ID = 'srg-manager-mask';
 const MENU_ID = 'srg-menu-entry';
 const SETTINGS_ID = 'srg-settings';
+const RUNTIME_STYLE_ID = 'srg-runtime-mobile-fixes';
 
 const SOURCE_LABELS = {
     openai: 'Chat Completion 预设',
@@ -520,6 +521,7 @@ function groupBuckets(adapter, search = '', sourceItems = null) {
 }
 
 function ensureRoot() {
+    ensureRuntimeStyles();
     let root = document.getElementById(ROOT_ID);
     if (!root) {
         root = document.createElement('div');
@@ -527,6 +529,52 @@ function ensureRoot() {
         document.body.appendChild(root);
     }
     return root;
+}
+
+function ensureRuntimeStyles() {
+    let style = document.getElementById(RUNTIME_STYLE_ID);
+    if (!style) {
+        style = document.createElement('style');
+        style.id = RUNTIME_STYLE_ID;
+        document.head.appendChild(style);
+    }
+    style.textContent = `
+        @media (max-width: 700px) {
+            #${MANAGER_ID}.open {
+                align-items: flex-end !important;
+                justify-content: center !important;
+                padding: 6px !important;
+            }
+            #${MANAGER_ID} .srg-manager {
+                width: min(560px, calc(100% - 4px)) !important;
+                height: min(78%, 720px) !important;
+                min-height: 0 !important;
+                max-height: calc(100% - 12px) !important;
+                border-radius: 14px !important;
+            }
+            #${MANAGER_ID} .srg-manager-backdrop {
+                bottom: auto !important;
+                height: 22% !important;
+            }
+            #${MANAGER_ID} .srg-manager-group-head {
+                align-items: center !important;
+                flex-wrap: nowrap !important;
+                gap: 5px !important;
+            }
+            #${MANAGER_ID} .srg-group-heading {
+                flex-basis: auto !important;
+            }
+            #${MANAGER_ID} .srg-group-actions {
+                width: auto !important;
+                gap: 2px !important;
+                padding-left: 0 !important;
+            }
+            #${MANAGER_ID} .srg-group-actions .srg-icon-button {
+                width: 26px !important;
+                height: 28px !important;
+            }
+        }
+    `;
 }
 
 function ensurePopover() {
@@ -688,11 +736,18 @@ function ensureManager() {
     if (!mask) {
         mask = document.createElement('div');
         mask.id = MANAGER_ID;
-        mask.innerHTML = '<div class="srg-manager" role="dialog" aria-modal="true" aria-label="嘎嘎资源分组"></div>';
+        mask.innerHTML = '<button type="button" class="srg-manager-backdrop" data-srg-manager-backdrop aria-label="关闭分组管理器背景" tabindex="-1"></button><div class="srg-manager" role="dialog" aria-modal="true" aria-label="嘎嘎资源分组"></div>';
+        const backdrop = mask.querySelector('[data-srg-manager-backdrop]');
+        const panel = mask.querySelector('.srg-manager');
+        if (backdrop) backdrop.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;';
+        if (panel) {
+            panel.style.position = 'relative';
+            panel.style.zIndex = '1';
+        }
         ensureRoot().appendChild(mask);
+        backdrop?.addEventListener('click', closeManager);
         mask.addEventListener('pointerdown', event => {
             if (event.button !== 0) return;
-            const panel = mask.querySelector('.srg-manager');
             const clickedBlankListArea = event.target === panel?.querySelector('.srg-manager-list');
             if (event.target === mask || event.target === panel || clickedBlankListArea) closeManager();
         });
@@ -700,12 +755,38 @@ function ensureManager() {
     return mask;
 }
 
+function syncManagerViewport() {
+    const mask = document.getElementById(MANAGER_ID);
+    if (!mask?.classList.contains('open')) return;
+    const viewport = window.visualViewport;
+    const width = Math.max(1, Math.round(viewport?.width || window.innerWidth));
+    const height = Math.max(1, Math.round(viewport?.height || window.innerHeight));
+    const offsetLeft = Math.round(viewport?.offsetLeft || 0);
+    const offsetTop = Math.round(viewport?.offsetTop || 0);
+    mask.style.inset = 'auto';
+    mask.style.top = '0';
+    mask.style.left = '0';
+    mask.style.right = 'auto';
+    mask.style.bottom = 'auto';
+    mask.style.width = `${width}px`;
+    mask.style.height = `${height}px`;
+    mask.style.transform = `translate(${offsetLeft}px, ${offsetTop}px)`;
+}
+
 function openManager(adapterId = '') {
     activeAdapterId = resolveManagerAdapterId(adapterId);
     managerSearch = '';
+    closePopover();
     document.documentElement.classList.add('srg-manager-open');
-    ensureManager().classList.add('open');
+    const mask = ensureManager();
+    mask.classList.add('open');
+    syncManagerViewport();
     renderManager();
+    requestAnimationFrame(() => {
+        syncManagerViewport();
+        const list = mask.querySelector('.srg-manager-list');
+        if (list) list.scrollTop = 0;
+    });
 }
 
 function closeManager() {
@@ -1219,6 +1300,14 @@ function stopLegacyUiIfPresent() {
 
 function bindGlobalUiEvents() {
     document.addEventListener('pointerdown', event => {
+        const manager = document.getElementById(MANAGER_ID);
+        if (manager?.classList.contains('open')) {
+            const panel = manager.querySelector('.srg-manager');
+            if (!panel?.contains(event.target)) {
+                closeManager();
+                return;
+            }
+        }
         const popover = document.getElementById(POPOVER_ID);
         if (!popover?.classList.contains('open')) return;
         const adapter = adapters.get(activePopoverAdapterId);
@@ -1230,8 +1319,18 @@ function bindGlobalUiEvents() {
         else closePopover();
     });
     window.addEventListener('resize', () => {
+        syncManagerViewport();
         if (activePopoverAdapterId) positionPopover(adapters.get(activePopoverAdapterId));
     });
+    if (window.visualViewport) {
+        const syncViewport = () => syncManagerViewport();
+        window.visualViewport.addEventListener('resize', syncViewport);
+        window.visualViewport.addEventListener('scroll', syncViewport);
+        eventCleanup.push(() => {
+            window.visualViewport?.removeEventListener('resize', syncViewport);
+            window.visualViewport?.removeEventListener('scroll', syncViewport);
+        });
+    }
     window.addEventListener('scroll', event => {
         const popover = document.getElementById(POPOVER_ID);
         const manager = document.getElementById(MANAGER_ID);
@@ -1276,6 +1375,7 @@ function cleanup() {
     document.getElementById(ROOT_ID)?.remove();
     document.getElementById(MENU_ID)?.remove();
     document.getElementById(SETTINGS_ID)?.remove();
+    document.getElementById(RUNTIME_STYLE_ID)?.remove();
     document.documentElement.classList.remove('srg-manager-open');
 }
 
