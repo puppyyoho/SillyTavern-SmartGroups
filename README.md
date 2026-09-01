@@ -1,0 +1,83 @@
+# 智能资源分组（SillyTavern Smart Groups）
+
+把 SillyTavern 里的预设、格式模板和 UI 主题（美化）统一变成可搜索、可折叠、可手动整理的分组下拉框。
+
+本扩展由「预设分组 v1.5.5」重构而来。它不修改预设或主题文件，只把分组记录保存在 SillyTavern 的 `extensionSettings` 中；关闭扩展后，原生下拉框会恢复。
+
+## 支持范围
+
+- Chat Completion、Text Completion、KoboldAI、NovelAI 等生成预设
+- Context、Instruct、System Prompt、Reasoning 等高级格式模板
+- UI Theme（美化 / 主题）
+- 以后由 SillyTavern 或其他扩展注册的 `data-preset-manager-for` 预设选择器
+
+扩展会动态发现选择器，因此切换 API、导入新预设、重命名或删除预设后不需要手动刷新分组。
+
+## 主要改进
+
+- 一个通用分组引擎服务全部资源，不再为每类预设复制逻辑
+- 自动识别版本号、A/B 版、测试版、括号标签、分隔符前缀和共同名称前缀
+- 自动分组与手动安排分离：手动移动过的条目会被“固定”，再次智能整理不会覆盖
+- 统一管理器：在不同预设和主题之间用标签页切换
+- 小窗快速搜索、折叠分组、移动端布局、键盘 `Esc` 关闭
+- 自动迁移旧脚本 `preset-group-manager:state` 中的 v1.5.5 分组记录
+- 分组配置支持 JSON 导入和导出
+- 不提供“删除预设”捷径，永久删除仍交给 SillyTavern 原生按钮处理，降低误删风险
+
+## 安装
+
+### 从 GitHub 安装（推荐）
+
+1. 打开 SillyTavern 的“扩展”面板。
+2. 选择“安装扩展 / Install Extension”。
+3. 粘贴仓库地址：
+
+   ```text
+   https://github.com/puppyyoho/SillyTavern-SmartGroups
+   ```
+
+4. 安装完成后重载页面。
+
+### 手动安装
+
+1. 下载仓库 ZIP 并解压。
+2. 把整个 `SillyTavern-SmartGroups` 文件夹放到以下任一位置：
+   - 当前用户：`SillyTavern/data/<你的用户>/extensions/`
+   - 全局：`SillyTavern/public/scripts/extensions/third-party/`
+3. 重载 SillyTavern 页面；如未出现，请执行一次强制刷新。
+4. 在“扩展设置”中找到“智能资源分组”，或从扩展菜单打开管理器。
+
+## 从旧版脚本迁移
+
+1. 保留旧版脚本运行过的同一浏览器站点数据，首次加载本扩展时会自动读取并迁移分组。
+2. 迁移完成后，在酒馆助手中关闭「预设分组 v1.5.5」。两套 UI 不应长期同时启用。
+3. 本扩展不会删除旧脚本的 localStorage 数据，必要时仍可退回旧版。
+
+注意：旧脚本只保存当前站点浏览器里的数据；如果换过域名、端口、浏览器或用户配置，浏览器会把它视为另一个站点，本扩展无法读取原站点的数据。
+
+## 使用
+
+- 点击任一被接管的预设或主题下拉框，按分组浏览或直接搜索。
+- 点击小窗右上角的分组图标进入完整管理器。
+- “智能整理”只重新安排自动条目；用每行右侧的下拉框手动移动后，该条目会固定。
+- 删除分组只会让其中条目回到“未分组”，不会删除预设、模板或主题。
+- 在扩展设置中可以一次整理全部资源、调整最小成组数量、导入/导出分组。
+
+## 安全与兼容性
+
+- 扩展完全在浏览器端运行，不请求外部网络，不读取 API Key。
+- 真实选中操作仍通过原生 `<select>` 的 `change` 事件完成，SillyTavern 仍是数据与行为的唯一来源。
+- 分组配置通过官方 `SillyTavern.getContext().extensionSettings` 保存。
+- 如遇到与主题或其他 UI 扩展冲突，可在扩展设置里分别关闭“接管预设”和“接管主题”；原生选择框会立即恢复。
+
+## 开发验证
+
+在扩展目录中运行：
+
+```bash
+node tests/grouping.test.mjs
+```
+
+## License
+
+MIT
