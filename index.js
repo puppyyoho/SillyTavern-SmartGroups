@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.6';
+const VERSION = '2.1.7';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -50,6 +50,7 @@ let managerSearch = '';
 let popoverSearch = '';
 let activePopoverAdapterId = '';
 let locateCurrentOnNextPopoverRender = false;
+let managerAnchorRect = null;
 const adapters = new Map();
 const eventCleanup = [];
 
@@ -574,6 +575,61 @@ function ensureRuntimeStyles() {
                 height: 28px !important;
             }
         }
+        #${MANAGER_ID}.scoped.open {
+            display: block !important;
+            padding: 0 !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-backdrop {
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager {
+            position: absolute !important;
+            left: var(--srg-manager-x) !important;
+            top: var(--srg-manager-y) !important;
+            width: var(--srg-manager-width) !important;
+            height: var(--srg-manager-height) !important;
+            min-height: 0 !important;
+            max-height: var(--srg-manager-height) !important;
+            border-radius: 12px !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-header,
+        #${MANAGER_ID}.scoped .srg-tabs,
+        #${MANAGER_ID}.scoped .srg-manager-summary {
+            display: none !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-toolbar {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) repeat(4, 34px) !important;
+            gap: 5px !important;
+            padding: 9px !important;
+            flex-wrap: nowrap !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-toolbar .srg-search {
+            min-width: 0 !important;
+            width: 100% !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-toolbar .menu_button {
+            display: inline-flex !important;
+            justify-content: center !important;
+            width: 34px !important;
+            min-width: 34px !important;
+            min-height: 34px !important;
+            padding: 0 !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-toolbar .menu_button span {
+            display: none !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-list {
+            padding: 7px !important;
+        }
+        #${MANAGER_ID}.scoped .srg-manager-group {
+            margin-bottom: 6px !important;
+            border-radius: 9px !important;
+        }
     `;
 }
 
@@ -698,8 +754,15 @@ function renderPopover() {
     });
     popover.querySelector('[data-srg-open-manager]')?.addEventListener('click', () => {
         const id = adapter.id;
+        const rect = popover.getBoundingClientRect();
+        const anchorRect = {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+        };
         closePopover();
-        openManager(id);
+        openManager(id, { anchorRect });
     });
     popover.querySelectorAll('[data-srg-toggle]').forEach(button => {
         button.addEventListener('click', () => {
@@ -771,14 +834,31 @@ function syncManagerViewport() {
     mask.style.width = `${width}px`;
     mask.style.height = `${height}px`;
     mask.style.transform = `translate(${offsetLeft}px, ${offsetTop}px)`;
+    syncScopedManagerGeometry(width, height);
 }
 
-function openManager(adapterId = '') {
+function syncScopedManagerGeometry(viewportWidth, viewportHeight) {
+    const mask = document.getElementById(MANAGER_ID);
+    if (!mask?.classList.contains('scoped') || !managerAnchorRect) return;
+    const gap = 7;
+    const width = Math.min(managerAnchorRect.width, viewportWidth - gap * 2);
+    const height = Math.min(managerAnchorRect.height, viewportHeight - gap * 2);
+    const left = Math.min(Math.max(managerAnchorRect.left, gap), viewportWidth - width - gap);
+    const top = Math.min(Math.max(managerAnchorRect.top, gap), viewportHeight - height - gap);
+    mask.style.setProperty('--srg-manager-x', `${left}px`);
+    mask.style.setProperty('--srg-manager-y', `${top}px`);
+    mask.style.setProperty('--srg-manager-width', `${width}px`);
+    mask.style.setProperty('--srg-manager-height', `${height}px`);
+}
+
+function openManager(adapterId = '', { anchorRect = null } = {}) {
     activeAdapterId = resolveManagerAdapterId(adapterId);
     managerSearch = '';
+    managerAnchorRect = anchorRect ? { ...anchorRect } : null;
     closePopover();
     document.documentElement.classList.add('srg-manager-open');
     const mask = ensureManager();
+    mask.classList.toggle('scoped', Boolean(managerAnchorRect));
     mask.classList.add('open');
     syncManagerViewport();
     renderManager();
@@ -790,7 +870,13 @@ function openManager(adapterId = '') {
 }
 
 function closeManager() {
-    document.getElementById(MANAGER_ID)?.classList.remove('open');
+    const mask = document.getElementById(MANAGER_ID);
+    mask?.classList.remove('open', 'scoped');
+    mask?.style.removeProperty('--srg-manager-x');
+    mask?.style.removeProperty('--srg-manager-y');
+    mask?.style.removeProperty('--srg-manager-width');
+    mask?.style.removeProperty('--srg-manager-height');
+    managerAnchorRect = null;
     document.documentElement.classList.remove('srg-manager-open');
 }
 
@@ -958,12 +1044,14 @@ function renderManager() {
             <button type="button" class="menu_button" data-srg-smart><i class="fa-solid fa-wand-magic-sparkles"></i><span>智能整理</span></button>
             <button type="button" class="menu_button" data-srg-add-group><i class="fa-solid fa-folder-plus"></i><span>新建分组</span></button>
             <button type="button" class="menu_button danger" data-srg-reset-source title="只清除分组，不删除预设或主题"><i class="fa-solid fa-rotate-left"></i><span>清除分组</span></button>
+            <button type="button" class="menu_button srg-scoped-close" data-srg-scoped-close aria-label="关闭管理" title="关闭管理"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="srg-manager-summary"><strong>${escapeHtml(adapter.managerLabel)}</strong><span>${managerItems.length} 个条目 · ${state.groups.length} 个分组</span></div>
         <div class="srg-manager-list">${sections.join('') || '<div class="srg-empty srg-empty-large">没有匹配的条目</div>'}</div>
     `;
 
     panel.querySelector('[data-srg-close]')?.addEventListener('click', closeManager);
+    panel.querySelector('[data-srg-scoped-close]')?.addEventListener('click', closeManager);
     panel.querySelectorAll('[data-srg-tab]').forEach(button => {
         button.addEventListener('click', () => {
             activeAdapterId = button.dataset.srgTab || '';
@@ -1384,3 +1472,4 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else window.setTimeout(boot, 0);
 
 export { boot as init, cleanup };
+
