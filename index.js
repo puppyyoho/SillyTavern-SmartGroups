@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.9';
+const VERSION = '2.1.10';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -1317,7 +1317,7 @@ function injectMenuEntry() {
     item.id = MENU_ID;
     item.className = 'list-group-item flex-container flexGap5 interactable';
     item.tabIndex = 0;
-    item.textContent = '嘎嘎资源分组';
+    item.innerHTML = '<span class="srg-menu-label">嘎嘎资源分组</span>';
     item.addEventListener('click', () => openManager());
     item.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') openManager();

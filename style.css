@@ -100,6 +100,22 @@ html.srg-manager-open {
     pointer-events: auto;
 }
 
+#srg-menu-entry::before,
+#srg-menu-entry::after,
+#srg-menu-entry > i,
+#srg-menu-entry > .fa,
+#srg-menu-entry > .fa-solid,
+#srg-menu-entry > .fa-layer-group {
+    display: none !important;
+    content: none !important;
+}
+
+#srg-menu-entry .srg-menu-label {
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+
 #srg-popover {
     position: fixed;
     z-index: 100002;
