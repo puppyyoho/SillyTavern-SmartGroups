@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.2';
+const VERSION = '2.1.4';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -691,7 +691,10 @@ function ensureManager() {
         mask.innerHTML = '<div class="srg-manager" role="dialog" aria-modal="true" aria-label="嘎嘎资源分组"></div>';
         ensureRoot().appendChild(mask);
         mask.addEventListener('pointerdown', event => {
-            if (event.target === mask) closeManager();
+            if (event.button !== 0) return;
+            const panel = mask.querySelector('.srg-manager');
+            const clickedBlankListArea = event.target === panel?.querySelector('.srg-manager-list');
+            if (event.target === mask || event.target === panel || clickedBlankListArea) closeManager();
         });
     }
     return mask;

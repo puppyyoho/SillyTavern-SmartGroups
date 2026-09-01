@@ -513,9 +513,11 @@
 }
 
 .srg-group-heading strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
 }
 
 .srg-group-heading > i {
@@ -709,6 +711,17 @@
 
     .srg-manager-group-head {
         align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .srg-group-heading {
+        flex-basis: 100%;
+    }
+
+    .srg-group-actions {
+        width: 100%;
+        justify-content: flex-end;
+        padding-left: 48px;
     }
 
     .srg-auto-badge {
