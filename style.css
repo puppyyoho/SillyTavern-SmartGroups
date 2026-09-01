@@ -1429,7 +1429,8 @@ html.srg-manager-open body {
 }
 
 #srg-manager-mask .pgm-preset-name.current { color: var(--pgm-accent); font-weight: 700; }
-#srg-manager-mask .pgm-move { width: 100%; min-width: 0; height: 30px; box-sizing: border-box; border: 1px solid var(--pgm-border) !important; border-radius: 8px !important; background: rgba(127, 127, 127, .07) !important; color: inherit !important; padding: 0 7px !important; font-family: inherit; }
+#srg-manager-mask .pgm-move { width: 100%; min-width: 0; height: 30px; box-sizing: border-box; border: 1px solid var(--pgm-border) !important; border-radius: 8px !important; background: rgba(127, 127, 127, .07) !important; color: inherit !important; padding: 0 7px !important; font-family: inherit; text-align: center !important; text-align-last: center; }
+#srg-manager-mask .pgm-move option { text-align: center; }
 #srg-manager-mask .pgm-empty { padding: 22px 12px; text-align: center; opacity: .56; font-size: 12px; }
 
 #srg-popover .pgm-quick-head {
