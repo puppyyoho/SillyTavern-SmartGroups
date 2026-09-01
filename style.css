@@ -1336,6 +1336,16 @@ html.srg-manager-open {
     background: rgba(127, 127, 127, .035);
 }
 
+#srg-manager-mask .pgm-group.drag-over {
+    border-color: var(--pgm-accent);
+    box-shadow: inset 0 0 0 1px var(--pgm-accent);
+}
+
+#srg-manager-mask .pgm-group.dragging,
+#srg-manager-mask .pgm-preset.dragging {
+    opacity: .42;
+}
+
 #srg-manager-mask .pgm-group-head {
     display: flex;
     align-items: center;
@@ -1384,6 +1394,15 @@ html.srg-manager-open {
 #srg-manager-mask .pgm-preset:hover { background: rgba(127, 127, 127, .07); }
 #srg-manager-mask .pgm-preset.current { background: rgba(127, 127, 127, .08); box-shadow: inset 3px 0 0 var(--pgm-accent); }
 #srg-manager-mask .pgm-preset-main { min-width: 0; display: flex; align-items: center; gap: 8px; }
+#srg-manager-mask .pgm-drag {
+    flex: 0 0 auto;
+    opacity: .34;
+    cursor: grab;
+    font-size: 14px;
+    line-height: 1;
+    user-select: none;
+}
+#srg-manager-mask .pgm-drag:active { cursor: grabbing; }
 #srg-manager-mask .pgm-preset-name {
     min-width: 0;
     flex: 1;
@@ -1465,5 +1484,6 @@ html.srg-manager-open {
         background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8fb3d9) 16%, transparent) !important;
     }
     #srg-manager-mask .pgm-group-actions .reorder { display: none !important; }
+    #srg-manager-mask .pgm-drag { display: none !important; }
 }
 

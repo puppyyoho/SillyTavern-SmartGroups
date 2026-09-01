@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.16';
+const VERSION = '2.1.17';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -1058,15 +1058,35 @@ function moveGroup(state, groupId, delta) {
     scheduleSave();
 }
 
-function renderManagerItem(adapter, item, state) {
+function reorderGroup(state, sourceId, targetId, placeAfter = false) {
+    if (!sourceId || sourceId === targetId) return false;
+    const sourceIndex = state.groups.findIndex(group => group.id === sourceId);
+    if (sourceIndex < 0) return false;
+    const [group] = state.groups.splice(sourceIndex, 1);
+    if (!targetId) {
+        state.groups.push(group);
+    } else {
+        const targetIndex = state.groups.findIndex(item => item.id === targetId);
+        if (targetIndex < 0) {
+            state.groups.splice(sourceIndex, 0, group);
+            return false;
+        }
+        state.groups.splice(targetIndex + (placeAfter ? 1 : 0), 0, group);
+    }
+    scheduleSave();
+    return true;
+}
+
+function renderManagerItem(adapter, item, state, dragEnabled = true) {
     const assigned = state.assignments[item.key] || '';
     const pinned = Boolean(state.manualAssignments[item.key]);
     const options = ['<option value="">未分组</option>', ...state.groups.map(group => (
         `<option value="${escapeHtml(group.id)}" ${group.id === assigned ? 'selected' : ''}>${escapeHtml(group.name)}</option>`
     ))].join('');
     return `
-        <div class="pgm-preset srg-manager-item ${isManagerItemSelected(adapter, item.key) ? 'current' : ''}">
+        <div class="pgm-preset srg-manager-item ${isManagerItemSelected(adapter, item.key) ? 'current' : ''}" draggable="${dragEnabled ? 'true' : 'false'}" data-srg-drag-item="${escapeHtml(item.key)}">
             <div class="pgm-preset-main">
+                <span class="pgm-drag" title="拖动到其他分组">⠿</span>
                 <button type="button" class="pgm-preset-name srg-item-name ${isManagerItemSelected(adapter, item.key) ? 'current' : ''}" data-srg-manager-select="${escapeHtml(item.key)}" title="切换到此条目">${escapeHtml(item.label)}</button>
             </div>
             <select class="pgm-move srg-group-select" data-srg-assign="${escapeHtml(item.key)}">${options}</select>
@@ -1098,6 +1118,7 @@ function renderManager() {
     const managerItems = getManagerItems(adapter);
     const { state, buckets, loose } = groupBuckets(adapter, managerSearch, managerItems);
     const searching = Boolean(normalizeName(managerSearch));
+    const dragEnabled = !searching && !window.matchMedia?.('(pointer: coarse)')?.matches;
     const selectedKey = adapter.getSelectedKey();
     const selectedGroupId = selectedKey ? (state.assignments[selectedKey] || '') : '';
     const shouldLocateCurrent = locateCurrentOnNextManagerRender && !searching;
@@ -1111,8 +1132,9 @@ function renderManager() {
         if (searching && !items.length && !group.name.toLocaleLowerCase().includes(managerSearch.toLocaleLowerCase())) continue;
         const collapsed = searching ? false : (shouldLocateCurrent && selectedGroupId === group.id ? false : state.managerCollapsed[group.id] !== false);
         sections.push(`
-            <section class="pgm-group srg-manager-group ${collapsed ? 'collapsed' : ''}">
+            <section class="pgm-group srg-manager-group ${collapsed ? 'collapsed' : ''}" data-srg-drop-group="${escapeHtml(group.id)}">
                 <div class="pgm-group-head srg-manager-group-head">
+                    <span class="pgm-drag srg-group-drag" draggable="${dragEnabled ? 'true' : 'false'}" data-srg-drag-group="${escapeHtml(group.id)}" title="拖动分组排序">⠿</span>
                     <button type="button" class="pgm-group-toggle srg-group-heading" data-srg-manager-toggle="${escapeHtml(group.id)}" aria-expanded="${collapsed ? 'false' : 'true'}">
                         <span class="pgm-chevron srg-chevron">▾</span><strong class="pgm-group-name">${escapeHtml(group.name)}</strong><span class="pgm-count srg-count">${items.length}</span>
                     </button>
@@ -1123,20 +1145,20 @@ function renderManager() {
                         <button type="button" class="pgm-row-btn srg-row-button danger" data-srg-delete-group="${escapeHtml(group.id)}" aria-label="删除分组（条目保留）" title="删除分组（条目保留）">×</button>
                     </div>
                 </div>
-                <div class="pgm-group-body srg-manager-group-body">${collapsed ? '' : (items.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="pgm-empty srg-empty">此分组暂无条目</div>')}</div>
+                <div class="pgm-group-body srg-manager-group-body">${collapsed ? '' : (items.map(item => renderManagerItem(adapter, item, state, dragEnabled)).join('') || '<div class="pgm-empty srg-empty">把条目拖到这里，或使用右侧“移动到”</div>')}</div>
             </section>
         `);
     }
     if (loose.length || !state.groups.length) {
         const collapsed = searching ? false : (shouldLocateCurrent && !selectedGroupId ? false : state.managerCollapsed.__loose !== false);
         sections.push(`
-            <section class="pgm-group srg-manager-group loose ${collapsed ? 'collapsed' : ''}">
+            <section class="pgm-group srg-manager-group loose ${collapsed ? 'collapsed' : ''}" data-srg-drop-group="">
                 <div class="pgm-group-head srg-manager-group-head">
                     <button type="button" class="pgm-group-toggle srg-group-heading" data-srg-manager-toggle="__loose" aria-expanded="${collapsed ? 'false' : 'true'}">
                         <span class="pgm-chevron srg-chevron">▾</span><strong class="pgm-group-name">未分组</strong><span class="pgm-count srg-count">${loose.length}</span>
                     </button>
                 </div>
-                <div class="pgm-group-body srg-manager-group-body">${collapsed ? '' : (loose.map(item => renderManagerItem(adapter, item, state)).join('') || '<div class="pgm-empty srg-empty">暂无未分组条目</div>')}</div>
+                <div class="pgm-group-body srg-manager-group-body">${collapsed ? '' : (loose.map(item => renderManagerItem(adapter, item, state, dragEnabled)).join('') || '<div class="pgm-empty srg-empty">暂无未分组条目</div>')}</div>
             </section>
         `);
     }
@@ -1153,7 +1175,7 @@ function renderManager() {
             <button type="button" class="pgm-btn primary srg-action-button" data-srg-smart>智能整理并合并</button>
             <button type="button" class="pgm-btn srg-action-button" data-srg-add-group>＋ 新建分组</button>
         </div>
-        <div class="pgm-hint srg-manager-hint">智能整理会按名称系列归并条目；手动调整后的分组会保留。手机端可直接点击分组标题折叠或展开，条目本体不会被修改。</div>
+        <div class="pgm-hint srg-manager-hint">桌面端可拖动分组调整顺序，也可把条目拖到其他分组；手机端使用每行右侧的“移动到”。手动调整后的分组会保留，条目本体不会被修改。</div>
         <div class="pgm-body srg-manager-list">${sections.join('') || '<div class="pgm-empty srg-empty srg-empty-large">没有匹配的条目</div>'}</div>
     `;
 
@@ -1214,6 +1236,79 @@ function renderManager() {
         select.addEventListener('change', () => {
             assignItem(adapter.stateId, select.dataset.srgAssign || '', select.value, true);
             renderManager();
+        });
+    });
+    let draggingItemKey = '';
+    let draggingGroupId = '';
+    const clearDragState = () => {
+        draggingItemKey = '';
+        draggingGroupId = '';
+        panel.querySelectorAll('.dragging, .drag-over').forEach(element => element.classList.remove('dragging', 'drag-over'));
+    };
+    const rerenderAtCurrentScroll = () => {
+        const scrollTop = panel.querySelector('.pgm-body')?.scrollTop || 0;
+        renderManager();
+        requestAnimationFrame(() => {
+            const body = panel.querySelector('.pgm-body');
+            if (body) body.scrollTop = Math.min(scrollTop, Math.max(0, body.scrollHeight - body.clientHeight));
+        });
+    };
+    panel.querySelectorAll('[data-srg-drag-item][draggable="true"]').forEach(row => {
+        row.addEventListener('dragstart', event => {
+            event.stopPropagation();
+            draggingItemKey = row.dataset.srgDragItem || '';
+            draggingGroupId = '';
+            row.classList.add('dragging');
+            try {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', draggingItemKey);
+            } catch {
+                // Drag state above is enough for same-panel moves.
+            }
+        });
+        row.addEventListener('dragend', clearDragState);
+    });
+    panel.querySelectorAll('[data-srg-drag-group][draggable="true"]').forEach(handle => {
+        handle.addEventListener('dragstart', event => {
+            event.stopPropagation();
+            draggingGroupId = handle.dataset.srgDragGroup || '';
+            draggingItemKey = '';
+            handle.closest('.srg-manager-group')?.classList.add('dragging');
+            try {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('application/x-srg-group', draggingGroupId);
+            } catch {
+                // Drag state above is enough for same-panel moves.
+            }
+        });
+        handle.addEventListener('dragend', clearDragState);
+    });
+    panel.querySelectorAll('[data-srg-drop-group]').forEach(section => {
+        section.addEventListener('dragover', event => {
+            if (!draggingItemKey && !draggingGroupId) return;
+            event.preventDefault();
+            section.classList.add('drag-over');
+            try { event.dataTransfer.dropEffect = 'move'; } catch { /* Browser fallback. */ }
+        });
+        section.addEventListener('dragleave', event => {
+            if (!section.contains(event.relatedTarget)) section.classList.remove('drag-over');
+        });
+        section.addEventListener('drop', event => {
+            if (!draggingItemKey && !draggingGroupId) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const targetGroupId = section.dataset.srgDropGroup || '';
+            if (draggingItemKey) {
+                assignItem(adapter.stateId, draggingItemKey, targetGroupId, true);
+                clearDragState();
+                rerenderAtCurrentScroll();
+                return;
+            }
+            const bounds = section.getBoundingClientRect();
+            const placeAfter = event.clientY > bounds.top + bounds.height / 2;
+            const changed = reorderGroup(state, draggingGroupId, targetGroupId, placeAfter);
+            clearDragState();
+            if (changed) rerenderAtCurrentScroll();
         });
     });
     panel.querySelectorAll('[data-srg-up]').forEach(button => button.addEventListener('click', () => {
