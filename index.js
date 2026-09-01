@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.21';
+const VERSION = '2.1.22';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -676,15 +676,15 @@ function ensureRuntimeStyles() {
         #${MANAGER_ID} .srg-manager-toolbar {
             display: flex !important;
             flex-wrap: wrap !important;
-            gap: 8px !important;
-            padding: 10px 12px !important;
+            gap: 6px !important;
+            padding: 7px 9px !important;
         }
         #${MANAGER_ID}.scoped .srg-manager-toolbar {
             display: flex !important;
             grid-template-columns: none !important;
             flex-wrap: wrap !important;
-            gap: 8px !important;
-            padding: 10px 12px !important;
+            gap: 6px !important;
+            padding: 7px 9px !important;
         }
         #${MANAGER_ID} .srg-manager-toolbar .srg-search {
             flex: 1 1 220px !important;
@@ -695,7 +695,7 @@ function ensureRuntimeStyles() {
             flex: 0 0 auto !important;
             width: auto !important;
             min-width: 0 !important;
-            padding: 0 11px !important;
+            padding: 0 9px !important;
             color: inherit !important;
             background: rgba(127,127,127,.08) !important;
             border-radius: 9px !important;
@@ -705,13 +705,13 @@ function ensureRuntimeStyles() {
             border-radius: 12px !important;
         }
         #${MANAGER_ID} .srg-row-button {
-            width: 28px !important;
-            height: 28px !important;
+            width: 24px !important;
+            height: 24px !important;
             padding: 0 !important;
             color: inherit !important;
             background: rgba(127,127,127,.08) !important;
             border: 1px solid var(--SmartThemeBorderColor, rgba(70,80,105,.16)) !important;
-            border-radius: 8px !important;
+            border-radius: 7px !important;
             font: inherit !important;
         }
         #${MANAGER_ID} .srg-pin,
