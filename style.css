@@ -9,6 +9,11 @@
     --srg-shadow: 0 18px 55px rgba(0, 0, 0, 0.38);
 }
 
+html.srg-manager-open {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+}
+
 .srg-native-select-hidden {
     position: absolute !important;
     width: 1px !important;
@@ -463,9 +468,12 @@
 .srg-manager-list {
     flex: 1 1 auto;
     min-height: 0;
-    overflow: auto;
-    overscroll-behavior: contain;
-    padding: 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom));
 }
 
 .srg-manager-group {
@@ -683,6 +691,8 @@
     .srg-manager {
         width: 100%;
         height: calc(100dvh - 12px);
+        min-height: 0;
+        max-height: calc(100dvh - 12px);
         border-radius: 10px;
     }
 
@@ -710,18 +720,23 @@
     }
 
     .srg-manager-group-head {
-        align-items: flex-start;
-        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px;
     }
 
     .srg-group-heading {
-        flex-basis: 100%;
+        flex-basis: auto;
     }
 
     .srg-group-actions {
-        width: 100%;
-        justify-content: flex-end;
-        padding-left: 48px;
+        width: auto;
+        gap: 2px;
+        padding-left: 0;
+    }
+
+    .srg-group-actions .srg-icon-button {
+        width: 26px;
+        height: 28px;
     }
 
     .srg-auto-badge {

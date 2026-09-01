@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.4';
+const VERSION = '2.1.5';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -420,7 +420,7 @@ class SelectAdapter {
     onItemsChanged() {
         if (!this.select.isConnected) return;
         this.refreshMount();
-        const items = this.getItems();
+        const items = getManagerItems(this);
         const state = getResourceState(this.stateId);
         const names = new Set(items.map(item => item.key));
         const fingerprint = resourceFingerprint(names);
@@ -435,7 +435,7 @@ class SelectAdapter {
             }
         }
         if (settings.autoGroupOnDiscovery && state.fingerprint !== fingerprint) {
-            applySmartGrouping(this, { announce: false });
+            applySmartGrouping(this, { announce: false, items });
         } else if (changed) {
             scheduleSave();
         }
@@ -456,9 +456,9 @@ class SelectAdapter {
     }
 }
 
-function applySmartGrouping(adapter, { announce = true } = {}) {
+function applySmartGrouping(adapter, { announce = true, items = null } = {}) {
     const state = getResourceState(adapter.stateId);
-    const names = adapter.getItems().map(item => item.key);
+    const names = (items || adapter.getItems()).map(item => item.key);
     const unlocked = names.filter(name => !state.manualAssignments[name]);
 
     for (const name of unlocked) delete state.assignments[name];
@@ -505,10 +505,10 @@ function assignItem(stateId, itemName, groupId, manual = true) {
     scheduleSave();
 }
 
-function groupBuckets(adapter, search = '') {
+function groupBuckets(adapter, search = '', sourceItems = null) {
     const state = getResourceState(adapter.stateId);
     const query = normalizeName(search).toLocaleLowerCase();
-    const items = adapter.getItems().filter(item => !query || item.label.toLocaleLowerCase().includes(query));
+    const items = (sourceItems || adapter.getItems()).filter(item => !query || item.label.toLocaleLowerCase().includes(query));
     const buckets = new Map(state.groups.map(group => [group.id, []]));
     const loose = [];
     for (const item of items) {
@@ -703,12 +703,14 @@ function ensureManager() {
 function openManager(adapterId = '') {
     activeAdapterId = resolveManagerAdapterId(adapterId);
     managerSearch = '';
+    document.documentElement.classList.add('srg-manager-open');
     ensureManager().classList.add('open');
     renderManager();
 }
 
 function closeManager() {
     document.getElementById(MANAGER_ID)?.classList.remove('open');
+    document.documentElement.classList.remove('srg-manager-open');
 }
 
 function getManagerAdapters() {
@@ -722,6 +724,37 @@ function getManagerAdapters() {
         }
     }
     return [...byState.values()];
+}
+
+function getManagerItems(adapter) {
+    const candidates = [
+        adapter,
+        ...[...adapters.values()].filter(candidate => candidate !== adapter && candidate.stateId === adapter.stateId),
+    ];
+    const seen = new Set();
+    const items = [];
+    for (const candidate of candidates) {
+        for (const item of candidate.getItems()) {
+            if (seen.has(item.key)) continue;
+            seen.add(item.key);
+            items.push(item);
+        }
+    }
+    return items;
+}
+
+function getManagerSelectionAdapter(adapter, itemKey) {
+    return [...adapters.values()]
+        .filter(candidate => candidate.stateId === adapter.stateId && candidate.getItems().some(item => item.key === itemKey))
+        .sort((left, right) => right.managerPriority - left.managerPriority)[0] || adapter;
+}
+
+function isManagerItemSelected(adapter, itemKey) {
+    return getManagerSelectionAdapter(adapter, itemKey).isItemSelected(itemKey);
+}
+
+function selectManagerItem(adapter, itemKey) {
+    return getManagerSelectionAdapter(adapter, itemKey).selectItem(itemKey);
 }
 
 function resolveManagerAdapterId(adapterId = '') {
@@ -765,7 +798,7 @@ function renderManagerItem(adapter, item, state) {
         `<option value="${escapeHtml(group.id)}" ${group.id === assigned ? 'selected' : ''}>${escapeHtml(group.name)}</option>`
     ))].join('');
     return `
-        <div class="srg-manager-item ${adapter.isItemSelected(item.key) ? 'current' : ''}">
+        <div class="srg-manager-item ${isManagerItemSelected(adapter, item.key) ? 'current' : ''}">
             <button type="button" class="srg-item-name" data-srg-manager-select="${escapeHtml(item.key)}" title="切换到此条目">${escapeHtml(item.label)}</button>
             <select class="srg-group-select" data-srg-assign="${escapeHtml(item.key)}">${options}</select>
             <span class="srg-pin ${pinned ? 'active' : ''}" title="${pinned ? '手动位置：自动整理会保留' : '自动位置'}"><i class="fa-solid fa-thumbtack"></i></span>
@@ -792,7 +825,8 @@ function renderManager() {
         return;
     }
 
-    const { state, buckets, loose } = groupBuckets(adapter, managerSearch);
+    const managerItems = getManagerItems(adapter);
+    const { state, buckets, loose } = groupBuckets(adapter, managerSearch, managerItems);
     const searching = Boolean(normalizeName(managerSearch));
     const sections = [];
     for (let index = 0; index < state.groups.length; index++) {
@@ -844,7 +878,7 @@ function renderManager() {
             <button type="button" class="menu_button" data-srg-add-group><i class="fa-solid fa-folder-plus"></i><span>新建分组</span></button>
             <button type="button" class="menu_button danger" data-srg-reset-source title="只清除分组，不删除预设或主题"><i class="fa-solid fa-rotate-left"></i><span>清除分组</span></button>
         </div>
-        <div class="srg-manager-summary"><strong>${escapeHtml(adapter.label)}</strong><span>${adapter.getItems().length} 个条目 · ${state.groups.length} 个分组</span></div>
+        <div class="srg-manager-summary"><strong>${escapeHtml(adapter.managerLabel)}</strong><span>${managerItems.length} 个条目 · ${state.groups.length} 个分组</span></div>
         <div class="srg-manager-list">${sections.join('') || '<div class="srg-empty srg-empty-large">没有匹配的条目</div>'}</div>
     `;
 
@@ -874,7 +908,7 @@ function renderManager() {
         panel.querySelector('[data-srg-manager-search]')?.focus();
     });
     panel.querySelector('[data-srg-smart]')?.addEventListener('click', () => {
-        applySmartGrouping(adapter);
+        applySmartGrouping(adapter, { items: managerItems });
         renderManager();
     });
     panel.querySelector('[data-srg-add-group]')?.addEventListener('click', async () => {
@@ -897,7 +931,7 @@ function renderManager() {
     });
     panel.querySelectorAll('[data-srg-manager-select]').forEach(button => {
         button.addEventListener('click', () => {
-            adapter.selectItem(button.dataset.srgManagerSelect || '');
+            selectManagerItem(adapter, button.dataset.srgManagerSelect || '');
             renderManager();
         });
     });
@@ -997,7 +1031,7 @@ function createSettingsPanel() {
         let groups = 0;
         let assigned = 0;
         for (const adapter of getManagerAdapters()) {
-            const result = applySmartGrouping(adapter, { announce: false });
+            const result = applySmartGrouping(adapter, { announce: false, items: getManagerItems(adapter) });
             groups += result.groups;
             assigned += result.assigned;
         }
@@ -1020,7 +1054,7 @@ function updateSettingsStatus() {
     const status = document.querySelector('[data-srg-status]');
     if (!status || !settings) return;
     const resourceAdapters = getManagerAdapters();
-    const itemCount = resourceAdapters.reduce((sum, adapter) => sum + adapter.getItems().length, 0);
+    const itemCount = resourceAdapters.reduce((sum, adapter) => sum + getManagerItems(adapter).length, 0);
     const groupCount = Object.values(settings.resources).reduce((sum, resource) => sum + (Array.isArray(resource?.groups) ? resource.groups.length : 0), 0);
     const nextText = `已发现 ${resourceAdapters.length} 类资源、${itemCount} 个条目；当前保存 ${groupCount} 个分组。`;
     if (status.textContent !== nextText) status.textContent = nextText;
@@ -1242,6 +1276,7 @@ function cleanup() {
     document.getElementById(ROOT_ID)?.remove();
     document.getElementById(MENU_ID)?.remove();
     document.getElementById(SETTINGS_ID)?.remove();
+    document.documentElement.classList.remove('srg-manager-open');
 }
 
 window.addEventListener('pagehide', cleanup, { once: true });
