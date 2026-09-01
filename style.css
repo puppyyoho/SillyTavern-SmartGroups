@@ -1483,6 +1483,25 @@ html.srg-manager-open {
     #srg-manager-mask .pgm-preset.current {
         background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8fb3d9) 16%, transparent) !important;
     }
+    #srg-manager-mask .pgm-preset.srg-manager-item {
+        grid-template-columns: minmax(0, 1fr) 112px !important;
+        grid-template-rows: minmax(40px, auto) !important;
+        gap: 6px !important;
+        min-height: 40px !important;
+        padding: 5px 5px 5px 8px !important;
+    }
+    #srg-manager-mask .pgm-preset .pgm-preset-main {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+        min-width: 0 !important;
+    }
+    #srg-manager-mask .pgm-preset .pgm-move.srg-group-select {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        width: 112px !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+    }
     #srg-manager-mask .pgm-group-actions .reorder { display: none !important; }
     #srg-manager-mask .pgm-drag { display: none !important; }
 }
