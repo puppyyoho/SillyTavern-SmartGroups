@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.24';
+const VERSION = '2.1.25';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -737,28 +737,48 @@ function ensurePopover() {
     if (!popover) {
         popover = document.createElement('div');
         popover.id = POPOVER_ID;
+        let lastTouchX = null;
         let lastTouchY = null;
+        // SillyTavern closes unpinned drawers from an `html` touchstart/mousedown
+        // handler whenever the target is outside `.openDrawer`. This popover is
+        // intentionally mounted at the document root, so keep its input events
+        // from reaching that host handler while preserving native list scrolling.
         popover.addEventListener('touchstart', event => {
+            event.stopPropagation();
+            lastTouchX = event.touches?.[0]?.clientX ?? null;
             lastTouchY = event.touches?.[0]?.clientY ?? null;
         }, { passive: true });
         popover.addEventListener('touchmove', event => {
+            event.stopPropagation();
+            const nextTouchX = event.touches?.[0]?.clientX;
             const nextTouchY = event.touches?.[0]?.clientY;
-            if (lastTouchY == null || nextTouchY == null) return;
+            if (lastTouchX == null || lastTouchY == null || nextTouchX == null || nextTouchY == null) return;
             const list = event.target?.closest?.('.pgm-quick-list');
             if (!list) {
                 event.preventDefault();
+                lastTouchX = nextTouchX;
                 lastTouchY = nextTouchY;
                 return;
             }
+            const deltaX = nextTouchX - lastTouchX;
             const deltaY = nextTouchY - lastTouchY;
             const atTop = list.scrollTop <= 0;
             const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
-            if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) event.preventDefault();
+            const horizontalGesture = Math.abs(deltaX) > Math.abs(deltaY);
+            if (horizontalGesture || (deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) event.preventDefault();
+            lastTouchX = nextTouchX;
             lastTouchY = nextTouchY;
         }, { passive: false });
-        const resetTouch = () => { lastTouchY = null; };
+        const resetTouch = event => {
+            event.stopPropagation();
+            lastTouchX = null;
+            lastTouchY = null;
+        };
         popover.addEventListener('touchend', resetTouch, { passive: true });
         popover.addEventListener('touchcancel', resetTouch, { passive: true });
+        for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'mousedown', 'mouseup', 'wheel']) {
+            popover.addEventListener(type, event => event.stopPropagation(), { passive: true });
+        }
         ensureRoot().appendChild(popover);
     }
     return popover;
@@ -1759,4 +1779,3 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else window.setTimeout(boot, 0);
 
 export { boot as init, cleanup };
-

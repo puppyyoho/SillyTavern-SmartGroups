@@ -31,6 +31,10 @@ assert.match(indexSource, /classList\.add\('srg-popover-open'\)/, 'opening the q
 assert.match(indexSource, /classList\.remove\('srg-popover-open'\)/, 'closing the quick picker must unlock background scrolling');
 assert.match(styleSource, /#srg-popover \.pgm-quick-list \{[^\n]*overscroll-behavior-y:\s*contain;/, 'quick picker scrolling must not leak to the page');
 assert.match(indexSource, /popover\.addEventListener\('touchmove',[\s\S]*?passive:\s*false/, 'touch boundary handling must be able to cancel scroll chaining');
+assert.match(indexSource, /popover\.addEventListener\('touchstart',[\s\S]*?event\.stopPropagation\(\)/, 'touching the picker must not trigger SillyTavern drawer autoclose');
+assert.match(indexSource, /touchmove'[\s\S]*?event\.stopPropagation\(\)/, 'quick picker touch movement must not reach host swipe handlers');
+assert.match(indexSource, /horizontalGesture[\s\S]*?event\.preventDefault\(\)/, 'horizontal gestures inside the picker must be blocked');
+assert.match(indexSource, /\['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'mousedown', 'mouseup', 'wheel'\]/, 'pointer and synthetic mouse gestures must stay inside the quick picker');
+assert.doesNotMatch(indexSource, /\['pointerdown'[^]]*'click'\]/, 'picker clicks must still bubble to its delegated selection handlers');
 
 console.log('ui-regressions.test.mjs: mobile manager regressions verified');
-
