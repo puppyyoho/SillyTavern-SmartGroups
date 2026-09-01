@@ -24,6 +24,10 @@
     pointer-events: none !important;
 }
 
+.srg-native-widget-hidden {
+    display: none !important;
+}
+
 .srg-select-shell {
     position: relative;
     display: flex;

@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.0.1';
+const VERSION = '2.1.0';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -21,6 +21,8 @@ const SOURCE_LABELS = {
     sysprompt: 'System Prompt 模板',
     reasoning: 'Reasoning 模板',
     themes: '美化 / UI 主题',
+    worldInfoGlobal: '世界书（全局启用）',
+    worldInfoEditor: '世界书（编辑）',
 };
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -28,6 +30,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
     enhancePresets: true,
     enhanceThemes: true,
+    enhanceWorldInfo: true,
     autoGroupOnDiscovery: true,
     minGroupSize: 2,
     compactRows: false,
@@ -231,6 +234,8 @@ function migrateLegacyState() {
 
 function sourceIdForSelect(select) {
     if (select.id === 'themes') return 'themes';
+    if (select.id === 'world_info') return 'world-info:global';
+    if (select.id === 'world_editor_select') return 'world-info:editor';
     const apiIds = String(select.dataset.presetManagerFor || '')
         .split(',')
         .map(value => value.trim())
@@ -240,8 +245,15 @@ function sourceIdForSelect(select) {
     return `preset:${primary}`;
 }
 
+function stateIdForSelect(select) {
+    if (select.id === 'world_info' || select.id === 'world_editor_select') return 'world-info';
+    return sourceIdForSelect(select);
+}
+
 function sourceLabelForSelect(select) {
     if (select.id === 'themes') return SOURCE_LABELS.themes;
+    if (select.id === 'world_info') return SOURCE_LABELS.worldInfoGlobal;
+    if (select.id === 'world_editor_select') return SOURCE_LABELS.worldInfoEditor;
     const apiIds = String(select.dataset.presetManagerFor || '')
         .split(',')
         .map(value => value.trim())
@@ -254,15 +266,20 @@ class SelectAdapter {
     constructor(select) {
         this.select = select;
         this.id = sourceIdForSelect(select);
+        this.stateId = stateIdForSelect(select);
         this.label = sourceLabelForSelect(select);
-        this.kind = select.id === 'themes' ? 'theme' : 'preset';
+        this.managerLabel = this.stateId === 'world-info' ? '世界书' : this.label;
+        this.managerPriority = select.id === 'world_editor_select' ? 20 : select.id === 'world_info' ? 10 : 0;
+        this.kind = select.id === 'themes' ? 'theme' : this.stateId === 'world-info' ? 'world-info' : 'preset';
+        this.multiple = Boolean(select.multiple);
         this.wrapper = null;
         this.trigger = null;
+        this.hiddenCompanions = new Set();
         this.lastItemsFingerprint = '';
         this.changeHandler = () => {
             this.updateTrigger();
             if (activePopoverAdapterId === this.id) {
-                locateCurrentOnNextPopoverRender = true;
+                locateCurrentOnNextPopoverRender = !this.multiple;
                 renderPopover();
             }
         };
@@ -282,7 +299,9 @@ class SelectAdapter {
 
     isEnabled() {
         if (!settings.enabled) return false;
-        return this.kind === 'theme' ? settings.enhanceThemes : settings.enhancePresets;
+        if (this.kind === 'theme') return settings.enhanceThemes;
+        if (this.kind === 'world-info') return settings.enhanceWorldInfo;
+        return settings.enhancePresets;
     }
 
     getItems() {
@@ -295,24 +314,49 @@ class SelectAdapter {
                 disabled: option.disabled,
             }))
             .filter(item => {
-                if (!item.key || seen.has(item.key)) return false;
+                if (!item.key || seen.has(item.key) || (this.kind === 'world-info' && !item.value)) return false;
                 seen.add(item.key);
                 return true;
             });
     }
 
+    getSelectedKeys() {
+        return [...(this.select.selectedOptions || [])]
+            .filter(option => this.kind !== 'world-info' || String(option.value ?? '') !== '')
+            .map(option => normalizeName(option.textContent))
+            .filter(Boolean);
+    }
+
     getSelectedKey() {
-        return normalizeName(this.select.selectedOptions?.[0]?.textContent || '');
+        return this.getSelectedKeys()[0] || '';
+    }
+
+    isItemSelected(key) {
+        const normalized = normalizeName(key);
+        return this.getSelectedKeys().some(item => item === normalized);
     }
 
     selectItem(key) {
         const option = [...this.select.querySelectorAll('option')].find(item => normalizeName(item.textContent) === normalizeName(key));
         if (!option || option.disabled) return false;
-        this.select.value = option.value;
-        option.selected = true;
+        if (this.multiple) {
+            option.selected = !option.selected;
+        } else {
+            this.select.value = option.value;
+            option.selected = true;
+        }
         this.select.dispatchEvent(new Event('change', { bubbles: true }));
         this.updateTrigger();
         return true;
+    }
+
+    refreshNativeCompanions() {
+        const rendered = this.select.id ? document.getElementById(`select2-${this.select.id}-container`) : null;
+        const container = rendered?.closest('.select2-container');
+        if (container && container !== this.wrapper) this.hiddenCompanions.add(container);
+        for (const element of this.hiddenCompanions) {
+            if (element?.isConnected) element.classList.toggle('srg-native-widget-hidden', this.isEnabled());
+        }
     }
 
     refreshMount() {
@@ -323,6 +367,7 @@ class SelectAdapter {
     mount() {
         if (this.wrapper?.isConnected && this.trigger?.isConnected) {
             this.select.classList.add('srg-native-select-hidden');
+            this.refreshNativeCompanions();
             this.updateTrigger();
             return;
         }
@@ -347,11 +392,13 @@ class SelectAdapter {
         this.select.classList.add('srg-native-select-hidden');
         this.wrapper = wrapper;
         this.trigger = trigger;
+        this.refreshNativeCompanions();
         this.updateTrigger();
     }
 
     unmount() {
         this.select.classList.remove('srg-native-select-hidden');
+        for (const element of this.hiddenCompanions) element?.classList.remove('srg-native-widget-hidden');
         this.wrapper?.remove();
         this.wrapper = null;
         this.trigger = null;
@@ -360,16 +407,21 @@ class SelectAdapter {
 
     updateTrigger() {
         if (!this.trigger) return;
-        const selected = this.getSelectedKey() || `选择${this.label}`;
-        this.trigger.title = selected;
-        this.trigger.innerHTML = `<span class="srg-select-label">${escapeHtml(selected)}</span><span class="srg-select-arrow">⌄</span>`;
+        const selected = this.getSelectedKeys();
+        const label = !selected.length
+            ? `选择${this.label}`
+            : this.multiple && selected.length > 1
+                ? `已启用 ${selected.length} 本世界书`
+                : selected[0];
+        this.trigger.title = selected.join('、') || label;
+        this.trigger.innerHTML = `<span class="srg-select-label">${escapeHtml(label)}</span><span class="srg-select-arrow">⌄</span>`;
     }
 
     onItemsChanged() {
         if (!this.select.isConnected) return;
         this.refreshMount();
         const items = this.getItems();
-        const state = getResourceState(this.id);
+        const state = getResourceState(this.stateId);
         const names = new Set(items.map(item => item.key));
         const fingerprint = resourceFingerprint(names);
         const itemListChanged = Boolean(this.lastItemsFingerprint && this.lastItemsFingerprint !== fingerprint);
@@ -405,7 +457,7 @@ class SelectAdapter {
 }
 
 function applySmartGrouping(adapter, { announce = true } = {}) {
-    const state = getResourceState(adapter.id);
+    const state = getResourceState(adapter.stateId);
     const names = adapter.getItems().map(item => item.key);
     const unlocked = names.filter(name => !state.manualAssignments[name]);
 
@@ -442,8 +494,8 @@ function applySmartGrouping(adapter, { announce = true } = {}) {
     return { groups: inferred.length, assigned };
 }
 
-function assignItem(adapterId, itemName, groupId, manual = true) {
-    const state = getResourceState(adapterId);
+function assignItem(stateId, itemName, groupId, manual = true) {
+    const state = getResourceState(stateId);
     if (groupId && !state.groups.some(group => group.id === groupId)) return;
     if (groupId) state.assignments[itemName] = groupId;
     else delete state.assignments[itemName];
@@ -454,7 +506,7 @@ function assignItem(adapterId, itemName, groupId, manual = true) {
 }
 
 function groupBuckets(adapter, search = '') {
-    const state = getResourceState(adapter.id);
+    const state = getResourceState(adapter.stateId);
     const query = normalizeName(search).toLocaleLowerCase();
     const items = adapter.getItems().filter(item => !query || item.label.toLocaleLowerCase().includes(query));
     const buckets = new Map(state.groups.map(group => [group.id, []]));
@@ -535,13 +587,21 @@ function renderPopover() {
         closePopover();
         return;
     }
+    const currentKeys = new Set(adapter.getSelectedKeys());
     const current = adapter.getSelectedKey();
     const { state, buckets, loose, searching } = groupBuckets(adapter, popoverSearch);
     const currentGroupId = state.assignments[current] || '';
     const shouldLocateCurrent = locateCurrentOnNextPopoverRender && !searching;
+    if (shouldLocateCurrent && adapter.multiple) {
+        const focusedGroupId = currentGroupId || (current ? '__loose' : '');
+        if (focusedGroupId && state.collapsed[focusedGroupId] !== false) {
+            state.collapsed[focusedGroupId] = false;
+            scheduleSave();
+        }
+    }
 
     const renderItems = items => items.map(item => `
-        <button type="button" class="srg-pop-item ${item.key === current ? 'current' : ''}" data-srg-select="${escapeHtml(item.key)}">
+        <button type="button" class="srg-pop-item ${currentKeys.has(item.key) ? 'current' : ''}" data-srg-select="${escapeHtml(item.key)}" ${adapter.multiple ? `aria-pressed="${currentKeys.has(item.key) ? 'true' : 'false'}"` : ''}>
             <span class="srg-current-dot"></span><span>${escapeHtml(item.label)}</span>
         </button>
     `).join('');
@@ -608,7 +668,7 @@ function renderPopover() {
     });
     popover.querySelectorAll('[data-srg-select]').forEach(button => {
         button.addEventListener('click', () => {
-            if (adapter.selectItem(button.dataset.srgSelect || '')) closePopover();
+            if (adapter.selectItem(button.dataset.srgSelect || '') && !adapter.multiple) closePopover();
         });
     });
     if (shouldLocateCurrent) {
@@ -638,8 +698,7 @@ function ensureManager() {
 }
 
 function openManager(adapterId = '') {
-    const preferred = adapterId && adapters.has(adapterId) ? adapterId : activeAdapterId;
-    activeAdapterId = preferred && adapters.has(preferred) ? preferred : [...adapters.keys()][0] || '';
+    activeAdapterId = resolveManagerAdapterId(adapterId);
     managerSearch = '';
     ensureManager().classList.add('open');
     renderManager();
@@ -647,6 +706,27 @@ function openManager(adapterId = '') {
 
 function closeManager() {
     document.getElementById(MANAGER_ID)?.classList.remove('open');
+}
+
+function getManagerAdapters() {
+    const byState = new Map();
+    for (const adapter of adapters.values()) {
+        const existing = byState.get(adapter.stateId);
+        const hasItems = adapter.getItems().length > 0;
+        const existingHasItems = existing?.getItems().length > 0;
+        if (!existing || (hasItems && !existingHasItems) || (hasItems === existingHasItems && adapter.managerPriority > existing.managerPriority)) {
+            byState.set(adapter.stateId, adapter);
+        }
+    }
+    return [...byState.values()];
+}
+
+function resolveManagerAdapterId(adapterId = '') {
+    const managerAdapters = getManagerAdapters();
+    const requested = adapters.get(adapterId);
+    if (requested) return managerAdapters.find(adapter => adapter.stateId === requested.stateId)?.id || '';
+    if (managerAdapters.some(adapter => adapter.id === activeAdapterId)) return activeAdapterId;
+    return managerAdapters[0]?.id || '';
 }
 
 async function promptText(title, message, initial = '') {
@@ -682,7 +762,7 @@ function renderManagerItem(adapter, item, state) {
         `<option value="${escapeHtml(group.id)}" ${group.id === assigned ? 'selected' : ''}>${escapeHtml(group.name)}</option>`
     ))].join('');
     return `
-        <div class="srg-manager-item ${item.key === adapter.getSelectedKey() ? 'current' : ''}">
+        <div class="srg-manager-item ${adapter.isItemSelected(item.key) ? 'current' : ''}">
             <button type="button" class="srg-item-name" data-srg-manager-select="${escapeHtml(item.key)}" title="切换到此条目">${escapeHtml(item.label)}</button>
             <select class="srg-group-select" data-srg-assign="${escapeHtml(item.key)}">${options}</select>
             <span class="srg-pin ${pinned ? 'active' : ''}" title="${pinned ? '手动位置：自动整理会保留' : '自动位置'}"><i class="fa-solid fa-thumbtack"></i></span>
@@ -693,16 +773,17 @@ function renderManagerItem(adapter, item, state) {
 function renderManager() {
     const mask = ensureManager();
     const panel = mask.querySelector('.srg-manager');
-    if (!activeAdapterId || !adapters.has(activeAdapterId)) activeAdapterId = [...adapters.keys()][0] || '';
+    const managerAdapters = getManagerAdapters();
+    if (!managerAdapters.some(item => item.id === activeAdapterId)) activeAdapterId = managerAdapters[0]?.id || '';
     const adapter = adapters.get(activeAdapterId);
-    const tabs = [...adapters.values()].map(item => `
-        <button type="button" class="srg-tab ${item.id === activeAdapterId ? 'active' : ''}" data-srg-tab="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>
+    const tabs = managerAdapters.map(item => `
+        <button type="button" class="srg-tab ${item.id === activeAdapterId ? 'active' : ''}" data-srg-tab="${escapeHtml(item.id)}">${escapeHtml(item.managerLabel)}</button>
     `).join('');
 
     if (!adapter) {
         panel.innerHTML = `
             <header class="srg-manager-header"><div><h2>${DISPLAY_NAME}</h2><small>v${VERSION}</small></div><button type="button" class="srg-close" data-srg-close>×</button></header>
-            <div class="srg-empty srg-empty-large">尚未发现可管理的预设或主题选择器。</div>
+            <div class="srg-empty srg-empty-large">尚未发现可管理的预设、主题或世界书选择器。</div>
         `;
         panel.querySelector('[data-srg-close]')?.addEventListener('click', closeManager);
         return;
@@ -750,7 +831,7 @@ function renderManager() {
     panel.classList.toggle('compact', Boolean(settings.compactRows));
     panel.innerHTML = `
         <header class="srg-manager-header">
-            <div><h2>${DISPLAY_NAME}</h2><small>预设与美化统一整理 · v${VERSION}</small></div>
+            <div><h2>${DISPLAY_NAME}</h2><small>预设、美化与世界书统一整理 · v${VERSION}</small></div>
             <button type="button" class="srg-close" data-srg-close aria-label="关闭">×</button>
         </header>
         <nav class="srg-tabs">${tabs}</nav>
@@ -805,8 +886,8 @@ function renderManager() {
         renderManager();
     });
     panel.querySelector('[data-srg-reset-source]')?.addEventListener('click', async () => {
-        if (!await confirmAction('清除分组', `清除“${adapter.label}”的全部分组？预设或主题本体不会被删除。`)) return;
-        settings.resources[adapter.id] = normalizeResourceState({});
+        if (!await confirmAction('清除分组', `清除“${adapter.managerLabel}”的全部分组？资源本体不会被删除。`)) return;
+        settings.resources[adapter.stateId] = normalizeResourceState({});
         scheduleSave();
         renderManager();
         toast('分组已清除，条目本体未改动', 'success');
@@ -819,7 +900,7 @@ function renderManager() {
     });
     panel.querySelectorAll('[data-srg-assign]').forEach(select => {
         select.addEventListener('change', () => {
-            assignItem(adapter.id, select.dataset.srgAssign || '', select.value, true);
+            assignItem(adapter.stateId, select.dataset.srgAssign || '', select.value, true);
             renderManager();
         });
     });
@@ -875,10 +956,11 @@ function createSettingsPanel() {
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
             <div class="inline-drawer-content">
-                <p class="srg-settings-note">自动发现全部 SillyTavern 预设选择器，并统一整理 UI 主题（美化）。只改变列表呈现与分组记录，不改写预设或主题本体。</p>
+                <p class="srg-settings-note">自动发现 SillyTavern 的预设、UI 主题（美化）和世界书选择器。只改变列表呈现与分组记录，不改写任何资源本体。</p>
                 <label class="checkbox_label"><input type="checkbox" data-srg-setting="enabled"><span>启用插件</span></label>
                 <label class="checkbox_label"><input type="checkbox" data-srg-setting="enhancePresets"><span>接管全部预设 / 模板下拉框</span></label>
                 <label class="checkbox_label"><input type="checkbox" data-srg-setting="enhanceThemes"><span>接管美化 / UI 主题下拉框</span></label>
+                <label class="checkbox_label"><input type="checkbox" data-srg-setting="enhanceWorldInfo"><span>接管世界书选择器</span></label>
                 <label class="checkbox_label"><input type="checkbox" data-srg-setting="autoGroupOnDiscovery"><span>发现新增条目时自动整理</span></label>
                 <label class="checkbox_label"><input type="checkbox" data-srg-setting="compactRows"><span>管理器使用紧凑行高</span></label>
                 <label class="srg-number-setting"><span>自动成组所需的最少条目数</span><input type="number" min="2" max="12" step="1" data-srg-setting="minGroupSize"></label>
@@ -911,7 +993,7 @@ function createSettingsPanel() {
     panel.querySelector('[data-srg-settings-all]')?.addEventListener('click', () => {
         let groups = 0;
         let assigned = 0;
-        for (const adapter of adapters.values()) {
+        for (const adapter of getManagerAdapters()) {
             const result = applySmartGrouping(adapter, { announce: false });
             groups += result.groups;
             assigned += result.assigned;
@@ -934,9 +1016,10 @@ function createSettingsPanel() {
 function updateSettingsStatus() {
     const status = document.querySelector('[data-srg-status]');
     if (!status || !settings) return;
-    const itemCount = [...adapters.values()].reduce((sum, adapter) => sum + adapter.getItems().length, 0);
+    const resourceAdapters = getManagerAdapters();
+    const itemCount = resourceAdapters.reduce((sum, adapter) => sum + adapter.getItems().length, 0);
     const groupCount = Object.values(settings.resources).reduce((sum, resource) => sum + (Array.isArray(resource?.groups) ? resource.groups.length : 0), 0);
-    const nextText = `已发现 ${adapters.size} 类资源、${itemCount} 个条目；当前保存 ${groupCount} 个分组。`;
+    const nextText = `已发现 ${resourceAdapters.length} 类资源、${itemCount} 个条目；当前保存 ${groupCount} 个分组。`;
     if (status.textContent !== nextText) status.textContent = nextText;
 }
 
@@ -964,7 +1047,7 @@ async function importGroupingData(file) {
         if (data?.type !== 'sillytavern-smart-resource-groups' || !data.resources || typeof data.resources !== 'object') {
             throw new Error('文件不是嘎嘎资源分组导出格式');
         }
-        if (!await confirmAction('导入分组', '导入会覆盖当前分组记录，但不会修改或删除任何预设、模板或主题。继续吗？')) return;
+        if (!await confirmAction('导入分组', '导入会覆盖当前分组记录，但不会修改或删除任何预设、模板、主题或世界书。继续吗？')) return;
         settings.resources = {};
         for (const [id, resource] of Object.entries(data.resources)) settings.resources[id] = normalizeResourceState(clone(resource));
         scheduleSave();
@@ -996,7 +1079,7 @@ function injectMenuEntry() {
 function scanAdapters() {
     if (!settings) return;
     const found = new Map();
-    for (const select of document.querySelectorAll('select[data-preset-manager-for], select#themes')) {
+    for (const select of document.querySelectorAll('select[data-preset-manager-for], select#themes, select#world_info, select#world_editor_select')) {
         const id = sourceIdForSelect(select);
         if (!id || found.has(id)) continue;
         found.set(id, select);
@@ -1082,6 +1165,7 @@ function bindAppEvents() {
     bind('MAIN_API_CHANGED', scheduleScan);
     bind('PRESET_RENAMED', migrateRenamedPreset);
     bind('PRESET_DELETED', removeDeletedPreset);
+    bind('WORLDINFO_SETTINGS_UPDATED', scheduleScan);
     bind('APP_READY', scheduleScan);
 }
 

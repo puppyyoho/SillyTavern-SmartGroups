@@ -31,4 +31,16 @@ const manualLike = inferGroups(['Dark Glass 1.0', 'Dark Glass 1.1', 'Light Paper
 assert.equal(manualLike.length, 1);
 assert.equal(familyKey(manualLike[0].label), familyKey('Dark Glass'));
 
-console.log(`grouping.test.mjs: ${groups.length + manualLike.length} inferred groups verified`);
+const worldBooks = inferGroups([
+    '【灰烬之桥】世界书-v1.0',
+    '【灰烬之桥】世界书-v2.0',
+    '星海纪事-角色设定-v1.0',
+    '星海纪事-角色设定-v2.0',
+    '独立百科',
+], { minGroupSize: 2 });
+const worldBookKeys = new Set(worldBooks.map(group => familyKey(group.label)));
+assert.equal(worldBookKeys.has(familyKey('【灰烬之桥】世界书')), true);
+assert.equal(worldBookKeys.has(familyKey('星海纪事-角色设定')), true);
+assert.equal(worldBooks.flatMap(group => group.names).includes('独立百科'), false);
+
+console.log(`grouping.test.mjs: ${groups.length + manualLike.length + worldBooks.length} inferred groups verified`);
