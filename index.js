@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.29';
+const VERSION = '2.1.28';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -10,7 +10,6 @@ const MANAGER_ID = 'srg-manager-mask';
 const MENU_ID = 'srg-menu-entry';
 const SETTINGS_ID = 'srg-settings';
 const RUNTIME_STYLE_ID = 'srg-runtime-mobile-fixes';
-const DEFAULT_FLOATING_ICON_URL = new URL('./assets/gaga-dog.png', import.meta.url).href;
 const RESOURCE_SELECT_SELECTOR = 'select[data-preset-manager-for], select#themes, select#world_info, select#world_editor_select';
 const SCAN_DISCOVERY_SELECTOR = `${RESOURCE_SELECT_SELECTOR}, #extensionsMenu, #extensions_settings2, #${MENU_ID}, #${SETTINGS_ID}`;
 
@@ -38,9 +37,6 @@ const DEFAULT_SETTINGS = Object.freeze({
     autoGroupOnDiscovery: true,
     minGroupSize: 2,
     compactRows: false,
-    floatingIconSize: 34,
-    floatingIconAuto: true,
-    floatingIconDataUrl: '',
     legacyMigrated: false,
     resources: {},
 });
@@ -98,63 +94,6 @@ function toast(message, type = 'info') {
     console[type === 'error' ? 'error' : 'log'](`[${DISPLAY_NAME}] ${message}`);
 }
 
-function getFloatingIconUrl() {
-    const custom = String(settings?.floatingIconDataUrl || '');
-    return settings?.floatingIconAuto && /^data:image\//i.test(custom) ? custom : DEFAULT_FLOATING_ICON_URL;
-}
-
-function getFloatingIconSize() {
-    return Math.max(20, Math.min(96, Number(settings?.floatingIconSize) || DEFAULT_SETTINGS.floatingIconSize));
-}
-
-function updateFloatingIconPreview() {
-    const preview = document.querySelector('[data-srg-icon-preview]');
-    if (!preview) return;
-    preview.src = getFloatingIconUrl();
-    const size = Math.min(72, getFloatingIconSize());
-    preview.style.width = `${size}px`;
-    preview.style.height = `${size}px`;
-}
-
-function updateFloatingMenuIcon() {
-    const item = document.getElementById(MENU_ID);
-    const icon = item?.querySelector(':scope > .srg-menu-icon');
-    if (!icon) return;
-    const size = getFloatingIconSize();
-    const source = getFloatingIconUrl();
-    if (icon.getAttribute('src') !== source) icon.src = source;
-    icon.style.width = `${size}px`;
-    icon.style.height = `${size}px`;
-    icon.alt = '';
-    icon.setAttribute('aria-hidden', 'true');
-}
-
-function updateFloatingIcon() {
-    updateFloatingMenuIcon();
-    updateFloatingIconPreview();
-}
-
-function readImageAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-        if (!file || !String(file.type || '').toLowerCase().startsWith('image/')) {
-            reject(new Error('请选择图片文件'));
-            return;
-        }
-        if (file.size > 4 * 1024 * 1024) {
-            reject(new Error('图片不能超过 4MB'));
-            return;
-        }
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error('图片读取失败'));
-        reader.onload = () => {
-            const value = String(reader.result || '');
-            if (!/^data:image\//i.test(value)) reject(new Error('图片格式不受支持'));
-            else resolve(value);
-        };
-        reader.readAsDataURL(file);
-    });
-}
-
 function getContext() {
     try {
         return globalThis.SillyTavern?.getContext?.() || null;
@@ -186,9 +125,6 @@ function loadSettings() {
     if (!settings.resources || typeof settings.resources !== 'object' || Array.isArray(settings.resources)) settings.resources = {};
     settings.schemaVersion = 2;
     settings.minGroupSize = Math.max(2, Math.min(12, Number(settings.minGroupSize) || 2));
-    settings.floatingIconSize = Math.max(20, Math.min(96, Number(settings.floatingIconSize) || DEFAULT_SETTINGS.floatingIconSize));
-    settings.floatingIconAuto = settings.floatingIconAuto !== false;
-    if (typeof settings.floatingIconDataUrl !== 'string') settings.floatingIconDataUrl = '';
 }
 
 function scheduleSave() {
@@ -1591,20 +1527,6 @@ function createSettingsPanel() {
                 <label class="checkbox_label"><input type="checkbox" data-srg-setting="autoGroupOnDiscovery"><span>发现新增条目时自动整理</span></label>
                 <label class="checkbox_label"><input type="checkbox" data-srg-setting="compactRows"><span>管理器使用紧凑行高</span></label>
                 <label class="srg-number-setting"><span>自动成组所需的最少条目数</span><input type="number" min="2" max="12" step="1" data-srg-setting="minGroupSize"></label>
-                <div class="srg-icon-settings">
-                    <div class="srg-icon-settings-title">悬浮窗图标</div>
-                    <div class="srg-icon-settings-row">
-                        <img class="srg-icon-preview" data-srg-icon-preview alt="悬浮窗图标预览" aria-hidden="true">
-                        <label class="srg-number-setting srg-icon-size-setting"><span>图标大小</span><input type="number" min="20" max="96" step="1" data-srg-setting="floatingIconSize"></label>
-                    </div>
-                    <label class="checkbox_label"><input type="checkbox" data-srg-setting="floatingIconAuto"><span>自动修改悬浮窗图标</span></label>
-                    <div class="srg-icon-upload-actions">
-                        <button type="button" class="menu_button" data-srg-icon-upload><span>上传图片</span></button>
-                        <button type="button" class="menu_button" data-srg-icon-reset><span>恢复小狗图标</span></button>
-                        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif" data-srg-icon-file hidden>
-                    </div>
-                    <div class="srg-icon-settings-note">上传图片后会自动替换扩展菜单里的悬浮窗入口；关闭此项时恢复为默认小狗图标。</div>
-                </div>
                 <div class="srg-settings-actions">
                     <button type="button" class="menu_button" data-srg-settings-open><span>打开管理器</span></button>
                     <button type="button" class="menu_button" data-srg-settings-all><span>整理全部</span></button>
@@ -1623,17 +1545,13 @@ function createSettingsPanel() {
         if (input.type === 'checkbox') input.checked = Boolean(settings[key]);
         else input.value = String(settings[key]);
         input.addEventListener('change', () => {
-            if (input.type === 'checkbox') settings[key] = input.checked;
-            else if (key === 'minGroupSize') settings[key] = Math.max(2, Math.min(12, Number(input.value) || 2));
-            else if (key === 'floatingIconSize') settings[key] = Math.max(20, Math.min(96, Number(input.value) || DEFAULT_SETTINGS.floatingIconSize));
-            if (key === 'minGroupSize' || key === 'floatingIconSize') input.value = String(settings[key]);
+            settings[key] = input.type === 'checkbox' ? input.checked : Math.max(2, Math.min(12, Number(input.value) || 2));
+            if (key === 'minGroupSize') input.value = String(settings[key]);
             for (const adapter of adapters.values()) adapter.refreshMount();
-            if (key === 'floatingIconSize' || key === 'floatingIconAuto') updateFloatingIcon();
             scheduleSave();
             updateSettingsStatus();
         });
     }
-    updateFloatingIcon();
     panel.querySelector('[data-srg-settings-open]')?.addEventListener('click', () => openManager());
     panel.querySelector('[data-srg-settings-all]')?.addEventListener('click', () => {
         let groups = 0;
@@ -1653,33 +1571,6 @@ function createSettingsPanel() {
         const file = fileInput.files?.[0];
         fileInput.value = '';
         if (file) await importGroupingData(file);
-    });
-    const iconFileInput = panel.querySelector('[data-srg-icon-file]');
-    panel.querySelector('[data-srg-icon-upload]')?.addEventListener('click', () => iconFileInput?.click());
-    iconFileInput?.addEventListener('change', async () => {
-        const file = iconFileInput.files?.[0];
-        iconFileInput.value = '';
-        if (!file) return;
-        try {
-            settings.floatingIconDataUrl = await readImageAsDataUrl(file);
-            settings.floatingIconAuto = true;
-            const autoInput = panel.querySelector('[data-srg-setting="floatingIconAuto"]');
-            if (autoInput) autoInput.checked = true;
-            scheduleSave();
-            updateFloatingIcon();
-            toast('悬浮窗图标已更新', 'success');
-        } catch (error) {
-            toast(error.message || '图片上传失败', 'error');
-        }
-    });
-    panel.querySelector('[data-srg-icon-reset]')?.addEventListener('click', () => {
-        settings.floatingIconDataUrl = '';
-        settings.floatingIconAuto = true;
-        const autoInput = panel.querySelector('[data-srg-setting="floatingIconAuto"]');
-        if (autoInput) autoInput.checked = true;
-        scheduleSave();
-        updateFloatingIcon();
-        toast('已恢复默认小狗图标', 'success');
     });
     updateSettingsStatus();
     return true;
@@ -1734,19 +1625,17 @@ async function importGroupingData(file) {
 
 function scrubMenuEntryIcon(item) {
     if (!item) return;
-    let icon = item.querySelector(':scope > .srg-menu-icon');
-    if (!icon) {
-        icon = document.createElement('img');
-        icon.className = 'srg-menu-icon';
-    }
     let label = item.querySelector(':scope > .srg-menu-label');
     if (!label) {
         label = document.createElement('span');
         label.className = 'srg-menu-label';
+        item.replaceChildren(label);
+    } else {
+        for (const child of [...item.children]) {
+            if (child !== label) child.remove();
+        }
     }
-    item.replaceChildren(icon, label);
     if (label.textContent !== DISPLAY_NAME) label.textContent = DISPLAY_NAME;
-    updateFloatingMenuIcon();
 }
 
 function injectMenuEntry() {
@@ -1761,7 +1650,7 @@ function injectMenuEntry() {
     item.id = MENU_ID;
     item.className = 'list-group-item flex-container flexGap5 interactable';
     item.tabIndex = 0;
-    item.innerHTML = '<img class="srg-menu-icon" alt="" aria-hidden="true"><span class="srg-menu-label">嘎嘎资源分组</span>';
+    item.innerHTML = '<span class="srg-menu-label">嘎嘎资源分组</span>';
     item.setAttribute('role', 'button');
     item.addEventListener('click', () => openManager());
     item.addEventListener('keydown', event => {
