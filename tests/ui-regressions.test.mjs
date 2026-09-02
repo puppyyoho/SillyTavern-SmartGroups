@@ -47,5 +47,9 @@ assert.match(indexSource, /addEventListener\('compositionend'/, 'search must com
 assert.match(indexSource, /if \(composing \|\| event\.isComposing\) return;/, 'search must not rerender during composition');
 assert.match(indexSource, /setSelectionRange\(start, end\)/, 'search must restore its caret after rerendering');
 assert.doesNotMatch(indexSource, /querySelector\('\[data-srg-(?:pop|manager)-search\]'\)\?\.focus\(\)/, 'search must not reset the caret to the start');
+assert.match(indexSource, /let hostModalDepth = 0;/, 'host popup interactions must be tracked');
+assert.match(indexSource, /if \(hostModalDepth > 0 \|\| event\.target\?\.closest\?\.\('\.popup, dialog\[open\]'\)\) return;/, 'host popups must not trigger manager outside-click closing');
+assert.match(indexSource, /const liveState = getResourceState\(adapter\.stateId\);/, 'rename must resolve the latest group state after awaiting input');
+assert.match(indexSource, /toast\('分组名称已更新', 'success'\);/, 'successful rename must give explicit feedback');
 
 console.log('ui-regressions.test.mjs: mobile manager regressions verified');
