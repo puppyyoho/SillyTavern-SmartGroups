@@ -112,7 +112,11 @@ function isTauriRuntime() {
 }
 
 function getTauriTopInset(viewportWidth) {
-    if (!isTauriRuntime() || viewportWidth <= 700) return 0;
+    // Tauri can expose a mobile WebView whose physical screenshot is wide
+    // while its CSS viewport is narrow (for example, a landscape tablet at a
+    // high device-pixel ratio). Do not gate this by viewport width: the
+    // native status/title bar can overlap either desktop or mobile layouts.
+    if (!isTauriRuntime() || viewportWidth < 1) return 0;
     const configured = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--srg-tauri-titlebar-height'));
     return Number.isFinite(configured) ? Math.max(0, Math.min(96, configured)) : 36;
 }
@@ -593,8 +597,7 @@ function ensureRuntimeStyles() {
         @media (max-width: 700px) {
             #${MANAGER_ID}.open {
                 position: absolute !important;
-                height: 100vh !important;
-                height: 100dvh !important;
+                height: calc(100dvh - var(--srg-tauri-top-inset, 0px)) !important;
                 align-items: flex-start !important;
                 justify-content: center !important;
                 padding: 7px !important;
@@ -603,7 +606,8 @@ function ensureRuntimeStyles() {
                 width: 100% !important;
                 height: auto !important;
                 min-height: 0 !important;
-                max-height: calc(100dvh - 14px) !important;
+                max-height: calc(100vh - 14px - var(--srg-tauri-top-inset, 0px)) !important;
+                max-height: calc(100dvh - 14px - var(--srg-tauri-top-inset, 0px)) !important;
                 border-radius: 12px !important;
             }
             #${MANAGER_ID} .srg-manager-backdrop {
@@ -1055,14 +1059,18 @@ function syncManagerViewport() {
     const offsetTop = Math.round(viewport?.offsetTop || 0);
     const mobile = width <= 700;
     const topInset = getTauriTopInset(width);
+    mask.style.setProperty('--srg-tauri-top-inset', `${topInset}px`);
     mask.style.inset = 'auto';
     mask.style.position = mobile ? 'absolute' : 'fixed';
-    mask.style.top = `${topInset}px`;
+    // The mobile runtime stylesheet intentionally uses !important for its
+    // viewport dimensions. Match that priority so the safe area cannot be
+    // overwritten by the responsive rule.
+    mask.style.setProperty('top', `${topInset}px`, 'important');
     mask.style.left = '0';
     mask.style.right = 'auto';
     mask.style.bottom = 'auto';
     mask.style.width = `${width}px`;
-    mask.style.height = `${Math.max(1, height - topInset)}px`;
+    mask.style.setProperty('height', `${Math.max(1, height - topInset)}px`, 'important');
     mask.style.transform = mobile ? 'none' : `translate(${offsetLeft}px, ${offsetTop}px)`;
     syncScopedManagerGeometry(width, height);
 }
