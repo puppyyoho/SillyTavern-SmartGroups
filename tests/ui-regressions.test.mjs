@@ -41,5 +41,11 @@ assert.doesNotMatch(indexSource, /new MutationObserver\(scheduleScan\)/, 'every 
 assert.match(indexSource, /if \(this\.trigger\.title !== title\) this\.trigger\.title = title;/, 'unchanged trigger titles must not be rewritten');
 assert.match(indexSource, /if \(labelNode\.textContent !== label\) labelNode\.textContent = label;/, 'unchanged trigger labels must not be rewritten');
 assert.doesNotMatch(indexSource, /this\.trigger\.innerHTML\s*=/, 'trigger refreshes must not recreate their DOM on every scan');
+assert.match(indexSource, /function bindSearchInput\(input, onCommit\)/, 'search fields must share IME-safe input handling');
+assert.match(indexSource, /addEventListener\('compositionstart'/, 'search must preserve Chinese IME composition');
+assert.match(indexSource, /addEventListener\('compositionend'/, 'search must commit completed Chinese IME text');
+assert.match(indexSource, /if \(composing \|\| event\.isComposing\) return;/, 'search must not rerender during composition');
+assert.match(indexSource, /setSelectionRange\(start, end\)/, 'search must restore its caret after rerendering');
+assert.doesNotMatch(indexSource, /querySelector\('\[data-srg-(?:pop|manager)-search\]'\)\?\.focus\(\)/, 'search must not reset the caret to the start');
 
 console.log('ui-regressions.test.mjs: mobile manager regressions verified');

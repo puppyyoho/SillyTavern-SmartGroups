@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.26';
+const VERSION = '2.1.27';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -854,6 +854,56 @@ function centerItemInScroller(scroller, item) {
     scroller.scrollTop = Math.max(0, Math.min(scroller.scrollTop + delta, max));
 }
 
+function focusSearchAt(input, selectionStart, selectionEnd) {
+    if (!input) return;
+    try {
+        input.focus({ preventScroll: true });
+    } catch {
+        input.focus();
+    }
+    const length = input.value.length;
+    const start = Math.max(0, Math.min(Number.isInteger(selectionStart) ? selectionStart : length, length));
+    const end = Math.max(start, Math.min(Number.isInteger(selectionEnd) ? selectionEnd : start, length));
+    try {
+        input.setSelectionRange(start, end);
+    } catch {
+        // Some embedded browsers do not expose selection APIs for search inputs.
+    }
+}
+
+function bindSearchInput(input, onCommit) {
+    if (!input) return;
+    let composing = false;
+    let compositionCommitTimer = 0;
+    const snapshot = target => ({
+        value: target.value || '',
+        selectionStart: target.selectionStart,
+        selectionEnd: target.selectionEnd,
+    });
+    const commit = target => onCommit(snapshot(target));
+
+    input.addEventListener('compositionstart', () => {
+        composing = true;
+        if (compositionCommitTimer) clearTimeout(compositionCommitTimer);
+        compositionCommitTimer = 0;
+    });
+    input.addEventListener('compositionend', event => {
+        composing = false;
+        if (compositionCommitTimer) clearTimeout(compositionCommitTimer);
+        const committed = snapshot(event.currentTarget);
+        compositionCommitTimer = window.setTimeout(() => {
+            compositionCommitTimer = 0;
+            onCommit(committed);
+        }, 0);
+    });
+    input.addEventListener('input', event => {
+        if (composing || event.isComposing) return;
+        if (compositionCommitTimer) clearTimeout(compositionCommitTimer);
+        compositionCommitTimer = 0;
+        commit(event.currentTarget);
+    });
+}
+
 function renderPopover() {
     const adapter = adapters.get(activePopoverAdapterId);
     const popover = ensurePopover();
@@ -915,11 +965,11 @@ function renderPopover() {
     `;
 
     const searchInput = popover.querySelector('[data-srg-pop-search]');
-    searchInput?.addEventListener('input', event => {
-        popoverSearch = event.target.value || '';
+    bindSearchInput(searchInput, ({ value, selectionStart, selectionEnd }) => {
+        popoverSearch = value;
         renderPopover();
         const next = popover.querySelector('[data-srg-pop-search]');
-        next?.focus();
+        focusSearchAt(next, selectionStart, selectionEnd);
         positionPopover(adapter);
     });
     popover.querySelector('[data-srg-open-manager]')?.addEventListener('click', () => {
@@ -1275,10 +1325,10 @@ function renderManager() {
         });
     });
     const searchInput = panel.querySelector('[data-srg-manager-search]');
-    searchInput?.addEventListener('input', event => {
-        managerSearch = event.target.value || '';
+    bindSearchInput(searchInput, ({ value, selectionStart, selectionEnd }) => {
+        managerSearch = value;
         renderManager();
-        panel.querySelector('[data-srg-manager-search]')?.focus();
+        focusSearchAt(panel.querySelector('[data-srg-manager-search]'), selectionStart, selectionEnd);
     });
     panel.querySelector('[data-srg-smart]')?.addEventListener('click', () => {
         applySmartGrouping(adapter, { items: managerItems });
