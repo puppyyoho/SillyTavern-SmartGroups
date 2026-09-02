@@ -36,5 +36,10 @@ assert.match(indexSource, /touchmove'[\s\S]*?event\.stopPropagation\(\)/, 'quick
 assert.match(indexSource, /horizontalGesture[\s\S]*?event\.preventDefault\(\)/, 'horizontal gestures inside the picker must be blocked');
 assert.match(indexSource, /\['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'mousedown', 'mouseup', 'wheel'\]/, 'pointer and synthetic mouse gestures must stay inside the quick picker');
 assert.doesNotMatch(indexSource, /\['pointerdown'[^]]*'click'\]/, 'picker clicks must still bubble to its delegated selection handlers');
+assert.match(indexSource, /function handleRootMutations\(mutations\)[\s\S]*?mutations\.some\(mutationNeedsScan\)/, 'the document observer must filter unrelated host mutations');
+assert.doesNotMatch(indexSource, /new MutationObserver\(scheduleScan\)/, 'every page mutation must not trigger a full adapter scan');
+assert.match(indexSource, /if \(this\.trigger\.title !== title\) this\.trigger\.title = title;/, 'unchanged trigger titles must not be rewritten');
+assert.match(indexSource, /if \(labelNode\.textContent !== label\) labelNode\.textContent = label;/, 'unchanged trigger labels must not be rewritten');
+assert.doesNotMatch(indexSource, /this\.trigger\.innerHTML\s*=/, 'trigger refreshes must not recreate their DOM on every scan');
 
 console.log('ui-regressions.test.mjs: mobile manager regressions verified');

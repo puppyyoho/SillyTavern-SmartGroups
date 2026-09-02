@@ -210,22 +210,48 @@ export function inferGroups(values, options = {}) {
         return { name, label: base.label || name, units: base.units, candidates: candidateParts(name) };
     });
     const candidateMap = new Map();
+    const indexedCandidates = new Map();
 
     for (const profile of profiles) {
         for (const candidate of profile.candidates) {
-            const matching = profiles
-                .filter(other => other.candidates.some(item => item.key === candidate.key))
-                .map(other => other.name);
-            addCandidate(candidateMap, candidate.label, candidate.priority, matching);
+            let indexed = indexedCandidates.get(candidate.key);
+            if (!indexed) {
+                indexed = { label: candidate.label, priority: candidate.priority, names: new Set() };
+                indexedCandidates.set(candidate.key, indexed);
+            }
+            indexed.names.add(profile.name);
+            if (candidate.priority > indexed.priority) indexed.priority = candidate.priority;
+            if (candidate.label.length > indexed.label.length && candidate.label.length <= 64) indexed.label = candidate.label;
         }
     }
+    for (const indexed of indexedCandidates.values()) {
+        addCandidate(candidateMap, indexed.label, indexed.priority, indexed.names);
+    }
 
+    const sharedPrefixes = new Map();
     for (let leftIndex = 0; leftIndex < profiles.length; leftIndex++) {
         for (let rightIndex = leftIndex + 1; rightIndex < profiles.length; rightIndex++) {
             const prefix = commonUnitPrefix(profiles[leftIndex].units, profiles[rightIndex].units);
             if (!prefix.length) continue;
+            const prefixKey = prefix.join('\u0001');
+            let shared = sharedPrefixes.get(prefixKey);
+            if (!shared) {
+                shared = { prefix, leftIndices: new Set() };
+                sharedPrefixes.set(prefixKey, shared);
+            }
+            shared.leftIndices.add(leftIndex);
+        }
+    }
+    for (const { prefix, leftIndices } of sharedPrefixes.values()) {
+        const matching = profiles.filter(profile => unitsStartWith(profile.units, prefix)).map(profile => profile.name);
+        const labels = new Map();
+        for (const leftIndex of leftIndices) {
             const label = labelForUnitPrefix(profiles[leftIndex].label, prefix);
-            const matching = profiles.filter(profile => unitsStartWith(profile.units, prefix)).map(profile => profile.name);
+            const key = familyKey(label);
+            const current = labels.get(key);
+            if (!current || label.length > current.length) labels.set(key, label);
+        }
+        for (const label of labels.values()) {
             addCandidate(candidateMap, label, 150 + Math.min(prefix.length, 20), matching);
         }
     }

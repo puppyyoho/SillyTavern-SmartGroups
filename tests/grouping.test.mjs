@@ -44,3 +44,12 @@ assert.equal(worldBookKeys.has(familyKey('星海纪事-角色设定')), true);
 assert.equal(worldBooks.flatMap(group => group.names).includes('独立百科'), false);
 
 console.log(`grouping.test.mjs: ${groups.length + manualLike.length + worldBooks.length} inferred groups verified`);
+
+const largePresetList = Array.from(
+    { length: 716 },
+    (_, index) => `【系列${Math.floor(index / 8)}】预设-v${index}.${index % 8}`,
+);
+const benchmarkStart = performance.now();
+inferGroups(largePresetList, { minGroupSize: 2 });
+const benchmarkDuration = performance.now() - benchmarkStart;
+assert.ok(benchmarkDuration < 2000, `716-item grouping took ${Math.round(benchmarkDuration)}ms`);

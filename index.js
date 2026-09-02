@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.25';
+const VERSION = '2.1.26';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -10,6 +10,8 @@ const MANAGER_ID = 'srg-manager-mask';
 const MENU_ID = 'srg-menu-entry';
 const SETTINGS_ID = 'srg-settings';
 const RUNTIME_STYLE_ID = 'srg-runtime-mobile-fixes';
+const RESOURCE_SELECT_SELECTOR = 'select[data-preset-manager-for], select#themes, select#world_info, select#world_editor_select';
+const SCAN_DISCOVERY_SELECTOR = `${RESOURCE_SELECT_SELECTOR}, #extensionsMenu, #extensions_settings2, #${MENU_ID}, #${SETTINGS_ID}`;
 
 const SOURCE_LABELS = {
     openai: 'Chat Completion 预设',
@@ -420,8 +422,24 @@ class SelectAdapter {
             : this.multiple && selected.length > 1
                 ? `已启用 ${selected.length} 本世界书`
                 : selected[0];
-        this.trigger.title = selected.join('、') || label;
-        this.trigger.innerHTML = `<span class="srg-select-label">${escapeHtml(label)}</span><span class="srg-select-arrow">⌄</span>`;
+        const title = selected.join('、') || label;
+        if (this.trigger.title !== title) this.trigger.title = title;
+
+        const labelNode = this.trigger.querySelector(':scope > .srg-select-label');
+        const arrowNode = this.trigger.querySelector(':scope > .srg-select-arrow');
+        const hasExpectedShape = this.trigger.childElementCount === 2 && labelNode && arrowNode;
+        if (!hasExpectedShape) {
+            const nextLabel = document.createElement('span');
+            nextLabel.className = 'srg-select-label';
+            nextLabel.textContent = label;
+            const nextArrow = document.createElement('span');
+            nextArrow.className = 'srg-select-arrow';
+            nextArrow.textContent = '⌄';
+            this.trigger.replaceChildren(nextLabel, nextArrow);
+            return;
+        }
+        if (labelNode.textContent !== label) labelNode.textContent = label;
+        if (arrowNode.textContent !== '⌄') arrowNode.textContent = '⌄';
     }
 
     onItemsChanged() {
@@ -1581,7 +1599,7 @@ function injectMenuEntry() {
 function scanAdapters() {
     if (!settings) return;
     const found = new Map();
-    for (const select of document.querySelectorAll('select[data-preset-manager-for], select#themes, select#world_info, select#world_editor_select')) {
+    for (const select of document.querySelectorAll(RESOURCE_SELECT_SELECTOR)) {
         const id = sourceIdForSelect(select);
         if (!id || found.has(id)) continue;
         found.set(id, select);
@@ -1602,6 +1620,23 @@ function scanAdapters() {
     injectMenuEntry();
     createSettingsPanel();
     updateSettingsStatus();
+}
+
+function elementMatchesOrContains(node, selector) {
+    if (!(node instanceof Element)) return false;
+    return node.matches(selector) || Boolean(node.querySelector(selector));
+}
+
+function mutationNeedsScan(mutation) {
+    if (mutation.type !== 'childList') return false;
+    for (const node of [...mutation.addedNodes, ...mutation.removedNodes]) {
+        if (elementMatchesOrContains(node, SCAN_DISCOVERY_SELECTOR)) return true;
+    }
+    return false;
+}
+
+function handleRootMutations(mutations) {
+    if (mutations.some(mutationNeedsScan)) scheduleScan();
 }
 
 function scheduleScan() {
@@ -1752,7 +1787,7 @@ async function boot() {
     stopLegacyUiIfPresent();
     bindAppEvents();
     bindGlobalUiEvents();
-    rootObserver = new MutationObserver(scheduleScan);
+    rootObserver = new MutationObserver(handleRootMutations);
     rootObserver.observe(document.body, { childList: true, subtree: true });
     scanAdapters();
     if (migrated) toast(`已迁移旧版 v1.5.5 的 ${migrated} 条手动分组记录`, 'success');
