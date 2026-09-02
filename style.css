@@ -9,6 +9,12 @@
     --srg-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
 }
 
+/* Tauri windows may use an overlay title bar. Keep the manager's close
+   button below that native hit area; hosts can override the height if needed. */
+html.srg-tauri-runtime {
+    --srg-tauri-titlebar-height: 36px;
+}
+
 html.srg-manager-open {
     overflow: hidden !important;
     overscroll-behavior: none;

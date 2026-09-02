@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.28';
+const VERSION = '2.1.29';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -100,6 +100,20 @@ function getContext() {
     } catch {
         return null;
     }
+}
+
+function isTauriRuntime() {
+    try {
+        return Boolean(globalThis.__TAURI_INTERNALS__ || globalThis.__TAURI__ || globalThis.__TAURI_METADATA__ || location.protocol === 'tauri:');
+    } catch {
+        return false;
+    }
+}
+
+function getTauriTopInset(viewportWidth) {
+    if (!isTauriRuntime() || viewportWidth <= 700) return 0;
+    const configured = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--srg-tauri-titlebar-height'));
+    return Number.isFinite(configured) ? Math.max(0, Math.min(96, configured)) : 36;
 }
 
 function mergeDefaults(defaults, current) {
@@ -1039,14 +1053,15 @@ function syncManagerViewport() {
     const offsetLeft = Math.round(viewport?.offsetLeft || 0);
     const offsetTop = Math.round(viewport?.offsetTop || 0);
     const mobile = width <= 700;
+    const topInset = getTauriTopInset(width);
     mask.style.inset = 'auto';
     mask.style.position = mobile ? 'absolute' : 'fixed';
-    mask.style.top = '0';
+    mask.style.top = `${topInset}px`;
     mask.style.left = '0';
     mask.style.right = 'auto';
     mask.style.bottom = 'auto';
     mask.style.width = `${width}px`;
-    mask.style.height = `${height}px`;
+    mask.style.height = `${Math.max(1, height - topInset)}px`;
     mask.style.transform = mobile ? 'none' : `translate(${offsetLeft}px, ${offsetTop}px)`;
     syncScopedManagerGeometry(width, height);
 }
@@ -1853,6 +1868,7 @@ async function boot() {
     }
     initialized = true;
     ensureRoot();
+    document.documentElement.classList.toggle('srg-tauri-runtime', isTauriRuntime());
     const migrated = migrateLegacyState();
     stopLegacyUiIfPresent();
     bindAppEvents();
@@ -1877,6 +1893,7 @@ function cleanup() {
     document.getElementById(RUNTIME_STYLE_ID)?.remove();
     document.documentElement.classList.remove('srg-manager-open');
     document.documentElement.classList.remove('srg-popover-open');
+    document.documentElement.classList.remove('srg-tauri-runtime');
 }
 
 window.addEventListener('pagehide', cleanup, { once: true });
