@@ -53,7 +53,11 @@ assert.match(indexSource, /const liveState = getResourceState\(adapter\.stateId\
 assert.match(indexSource, /toast\('分组名称已更新', 'success'\);/, 'successful rename must give explicit feedback');
 assert.match(indexSource, /function isTauriRuntime\(\)/, 'Tauri runtime detection must be explicit');
 assert.match(indexSource, /getTauriTopInset\(viewportWidth\)/, 'Tauri titlebar inset must be applied to manager positioning');
-assert.match(indexSource, /mask\.style\.height = `\$\{Math\.max\(1, height - topInset\)\}px`;/, 'manager height must account for the Tauri top inset');
+assert.match(indexSource, /mask\.style\.setProperty\('height', `\$\{Math\.max\(1, height - topInset\)\}px`, 'important'\)/, 'manager height must account for the Tauri top inset');
+assert.match(indexSource, /mask\.style\.setProperty\('top', `\$\{topInset\}px`, 'important'\)/, 'Tauri top inset must survive responsive !important rules');
+assert.doesNotMatch(indexSource, /viewportWidth <= 700\) return 0/, 'Tauri safe area must also apply to narrow CSS viewports');
 assert.match(styleSource, /--srg-tauri-titlebar-height:\s*36px;/, 'Tauri titlebar guard must have a safe default');
+assert.match(indexSource, /height: calc\(100dvh - var\(--srg-tauri-top-inset, 0px\)\) !important;/, 'mobile manager height must reserve the Tauri safe area');
+assert.match(indexSource, /max-height: calc\(100dvh - 14px - var\(--srg-tauri-top-inset, 0px\)\) !important;/, 'mobile manager content must fit below the Tauri safe area');
 
 console.log('ui-regressions.test.mjs: mobile manager regressions verified');
