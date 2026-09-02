@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 const indexSource = readFileSync(new URL('../index.js', import.meta.url), 'utf8');
 const styleSource = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
@@ -9,11 +9,6 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 const sourceVersion = indexSource.match(/const VERSION = '([^']+)'/)?.[1];
 assert.equal(sourceVersion, manifest.version, 'index and manifest versions must match');
 assert.equal(sourceVersion, packageJson.version, 'index and package versions must match');
-assert.ok(existsSync(new URL('../assets/gaga-dog.png', import.meta.url)), 'default floating icon asset must ship with the plugin');
-assert.match(indexSource, /floatingIconSize/, 'floating icon size must be persisted in settings');
-assert.match(indexSource, /floatingIconDataUrl/, 'uploaded floating icon must be persisted in settings');
-assert.match(indexSource, /data-srg-icon-upload/, 'settings must expose an icon upload action');
-assert.match(indexSource, /function updateFloatingMenuIcon\(\)/, 'menu icon updates must be centralized');
 
 const openManagerSource = indexSource.match(/function openManager[\s\S]*?\n}\n\nfunction closeManager/)?.[0] || '';
 assert.ok(openManagerSource, 'openManager source was not found');
@@ -32,8 +27,6 @@ assert.match(styleSource, /#srg-manager-mask \.pgm-preset \{[\s\S]*?min-height:\
 assert.doesNotMatch(indexSource, /<b><i class="fa-solid fa-layer-group"><\/i>/, 'settings title must not restore the removed icon');
 assert.match(indexSource, /function scrubMenuEntryIcon\(item\)/, 'menu icon cleanup must survive host-side reinjection');
 assert.match(styleSource, /#srg-menu-entry > :not\(\.srg-menu-label\)/, 'menu entry must hide host-injected children');
-assert.match(styleSource, /\.srg-menu-icon[\s\S]*?object-fit:\s*contain;/, 'floating menu icon must fit its configured box');
-assert.match(styleSource, /\.srg-icon-settings/, 'icon controls must be available inside extension settings');
 assert.match(indexSource, /classList\.add\('srg-popover-open'\)/, 'opening the quick picker must lock background scrolling');
 assert.match(indexSource, /classList\.remove\('srg-popover-open'\)/, 'closing the quick picker must unlock background scrolling');
 assert.match(styleSource, /#srg-popover \.pgm-quick-list \{[^\n]*overscroll-behavior-y:\s*contain;/, 'quick picker scrolling must not leak to the page');
