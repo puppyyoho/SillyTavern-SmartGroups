@@ -104,7 +104,8 @@ function getContext() {
 
 function isTauriRuntime() {
     try {
-        return Boolean(globalThis.__TAURI_INTERNALS__ || globalThis.__TAURI__ || globalThis.__TAURI_METADATA__ || location.protocol === 'tauri:');
+        const host = String(location.hostname || '').toLocaleLowerCase();
+        return Boolean(globalThis.__TAURI_INTERNALS__ || globalThis.__TAURI__ || globalThis.__TAURI_METADATA__ || location.protocol === 'tauri:' || /(?:^|\.)tauri\.localhost$/.test(host));
     } catch {
         return false;
     }
