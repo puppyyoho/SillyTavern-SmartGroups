@@ -2,7 +2,7 @@ import { familyKey, inferGroups, normalizeName } from './grouping.js';
 
 const MODULE_NAME = 'smart_resource_groups';
 const DISPLAY_NAME = '嘎嘎资源分组';
-const VERSION = '2.1.27';
+const VERSION = '2.1.28';
 const LEGACY_STORAGE_KEY = 'preset-group-manager:state';
 const ROOT_ID = 'srg-root';
 const POPOVER_ID = 'srg-popover';
@@ -54,6 +54,7 @@ let activePopoverAdapterId = '';
 let locateCurrentOnNextPopoverRender = false;
 let locateCurrentOnNextManagerRender = false;
 let managerAnchorRect = null;
+let hostModalDepth = 0;
 const adapters = new Map();
 const eventCleanup = [];
 
@@ -1149,21 +1150,31 @@ function resolveManagerAdapterId(adapterId = '') {
 }
 
 async function promptText(title, message, initial = '') {
+    hostModalDepth++;
     try {
-        if (context?.Popup?.show?.input) return await context.Popup.show.input(title, message, initial);
-    } catch {
-        // Native fallback below.
+        try {
+            if (context?.Popup?.show?.input) return await context.Popup.show.input(title, message, initial);
+        } catch {
+            // Native fallback below.
+        }
+        return window.prompt(`${title}\n${message}`, initial);
+    } finally {
+        hostModalDepth = Math.max(0, hostModalDepth - 1);
     }
-    return window.prompt(`${title}\n${message}`, initial);
 }
 
 async function confirmAction(title, message) {
+    hostModalDepth++;
     try {
-        if (context?.Popup?.show?.confirm) return Boolean(await context.Popup.show.confirm(title, message));
-    } catch {
-        // Native fallback below.
+        try {
+            if (context?.Popup?.show?.confirm) return Boolean(await context.Popup.show.confirm(title, message));
+        } catch {
+            // Native fallback below.
+        }
+        return window.confirm(`${title}\n${message}`);
+    } finally {
+        hostModalDepth = Math.max(0, hostModalDepth - 1);
     }
-    return window.confirm(`${title}\n${message}`);
 }
 
 function moveGroup(state, groupId, delta) {
@@ -1450,14 +1461,21 @@ function renderManager() {
         if (!group) return;
         const name = normalizeName(await promptText('重命名分组', '请输入新的分组名称：', group.name));
         if (!name || name === group.name) return;
-        if (state.groups.some(item => item.id !== group.id && familyKey(item.name) === familyKey(name))) {
+        const liveState = getResourceState(adapter.stateId);
+        const liveGroup = liveState.groups.find(item => item.id === group.id);
+        if (!liveGroup) {
+            toast('分组状态已变化，请重新打开后再试', 'warning');
+            return;
+        }
+        if (liveState.groups.some(item => item.id !== liveGroup.id && familyKey(item.name) === familyKey(name))) {
             toast('已有同名分组', 'warning');
             return;
         }
-        group.name = name;
-        group.auto = false;
+        liveGroup.name = name;
+        liveGroup.auto = false;
         scheduleSave();
         renderManager();
+        toast('分组名称已更新', 'success');
     }));
     panel.querySelectorAll('[data-srg-delete-group]').forEach(button => button.addEventListener('click', async () => {
         const group = state.groups.find(item => item.id === button.dataset.srgDeleteGroup);
@@ -1769,6 +1787,7 @@ function stopLegacyUiIfPresent() {
 
 function bindGlobalUiEvents() {
     const handleDocumentPointerDown = event => {
+        if (hostModalDepth > 0 || event.target?.closest?.('.popup, dialog[open]')) return;
         const manager = document.getElementById(MANAGER_ID);
         if (manager?.classList.contains('open')) {
             const panel = manager.querySelector('.srg-manager');
@@ -1783,6 +1802,7 @@ function bindGlobalUiEvents() {
         if (!popover.contains(event.target) && !adapter?.trigger?.contains(event.target)) closePopover();
     };
     const handleDocumentKeydown = event => {
+        if (hostModalDepth > 0 || event.target?.closest?.('.popup, dialog[open]')) return;
         if (event.key !== 'Escape') return;
         if (document.getElementById(MANAGER_ID)?.classList.contains('open')) closeManager();
         else closePopover();
