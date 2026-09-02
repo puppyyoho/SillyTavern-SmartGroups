@@ -51,5 +51,9 @@ assert.match(indexSource, /let hostModalDepth = 0;/, 'host popup interactions mu
 assert.match(indexSource, /if \(hostModalDepth > 0 \|\| event\.target\?\.closest\?\.\('\.popup, dialog\[open\]'\)\) return;/, 'host popups must not trigger manager outside-click closing');
 assert.match(indexSource, /const liveState = getResourceState\(adapter\.stateId\);/, 'rename must resolve the latest group state after awaiting input');
 assert.match(indexSource, /toast\('分组名称已更新', 'success'\);/, 'successful rename must give explicit feedback');
+assert.match(indexSource, /function isTauriRuntime\(\)/, 'Tauri runtime detection must be explicit');
+assert.match(indexSource, /getTauriTopInset\(viewportWidth\)/, 'Tauri titlebar inset must be applied to manager positioning');
+assert.match(indexSource, /mask\.style\.height = `\$\{Math\.max\(1, height - topInset\)\}px`;/, 'manager height must account for the Tauri top inset');
+assert.match(styleSource, /--srg-tauri-titlebar-height:\s*36px;/, 'Tauri titlebar guard must have a safe default');
 
 console.log('ui-regressions.test.mjs: mobile manager regressions verified');
